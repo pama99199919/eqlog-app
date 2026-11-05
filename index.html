@@ -5,10 +5,8 @@
 <title>기기가동 기록서</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
@@ -567,7 +565,7 @@
   .name-edit .name-input:focus{outline:none;border-color:var(--accent-1);}
   .name-edit .mini-btn{white-space:nowrap;}
 
-  /* ---------- 월별 엑셀 내보내기 panel ---------- */
+  /* ---------- 월별 PDF 내보내기 panel ---------- */
   .export-panel-inner{max-width:640px;}
   .export-panel-inner .toolbar{margin-bottom:22px;}
   .export-note{font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin-bottom:18px;background:var(--off-white);border:1px solid var(--line-soft);border-radius:6px;padding:12px 14px;}
@@ -618,6 +616,39 @@
     .footer-block{grid-template-columns:1fr;}
     .tabs{overflow-x:auto;}
   }
+  /* ---------- 표 칸/줄 구분선 강화 ---------- */
+  /* 기록서 입력 표 */
+  table.grid{border:1px solid #aeb4bd;}
+  table.grid thead th{border:1px solid #aeb4bd;border-top:2px solid var(--ink);background:#f3f4f6;}
+  table.grid tbody td{border:1px solid #c9ced6;}
+
+  /* 저장된 기록 목록 표, 계정 권한 표 */
+  table.plain thead th{border:1px solid #aeb4bd;border-top:2px solid var(--ink);}
+  table.plain tbody td{border:1px solid #d3d7dd;}
+
+  /* ---------- 탭 영역 구분선 강화 (월별생성 / 저장된 기록 / 월별 PDF 내보내기) ---------- */
+  .toolbar{border:1px solid #aeb4bd;}
+  .tb-field select, .tb-field input{border:1px solid #aeb4bd;}
+  .list-toolbar{border:1px solid #aeb4bd;background:var(--off-white);border-radius:6px;padding:12px 14px;}
+  .list-toolbar select, .list-toolbar input{border:1px solid #aeb4bd;}
+  .pc-settings{border:1px solid #aeb4bd;}
+  .pc-settings input{border:1px solid #aeb4bd;}
+  .table-scroll{border:1px solid #aeb4bd;}
+  .export-panel-inner{border:1px solid #aeb4bd;border-radius:6px;padding:18px;}
+  .export-note{border:1px solid #aeb4bd;}
+  .ledger-wrap{border:1px solid #aeb4bd;}
+  .ledger-info-row{border-bottom:1px solid #aeb4bd;}
+  .info-cell{border-right:1px solid #c9ced6;}
+  .grid-actions{border-top:1px solid #aeb4bd;}
+  .footer-cell{border-right:1px solid #c9ced6;}
+  .footer-cell:last-child{border-right:none;}
+  .footer-cell textarea, .sign-box{border:1px solid #aeb4bd;}
+
+  /* ---------- 상단 탭 칸 구분선 ---------- */
+  .tabs{gap:0;border-bottom:1px solid #8a919c;}
+  .tab{border:1px solid #8a919c;border-bottom:none;background:#eceef1;margin-right:-1px;}
+  .tab:hover{background:#f5f6f8;}
+  .tab.active{background:#fff;border-color:#8a919c;border-bottom:1px solid #fff;}
 </style>
 </head>
 <body>
@@ -673,7 +704,7 @@
       <div class="tabs">
         <button type="button" class="tab" data-tab="write">월별기기가동생성</button>
         <button type="button" class="tab active" data-tab="list">저장된 기록</button>
-        <button type="button" class="tab" data-tab="export">월별 엑셀 내보내기</button>
+        <button type="button" class="tab" data-tab="export">월별 PDF/엑셀 내보내기</button>
         <button type="button" class="tab" data-tab="accounts" id="tab-accounts-btn" style="display:none;">계정 권한 관리</button>
       </div>
 
@@ -749,7 +780,7 @@
       </div>
 
 
-      <!-- ---------- 월별 엑셀 내보내기 ---------- -->
+      <!-- ---------- 월별 PDF 내보내기 ---------- -->
       <div class="tab-panel" id="panel-export">
         <div class="export-panel-inner">
           <div class="toolbar">
@@ -763,11 +794,16 @@
             </div>
           </div>
           <div class="export-note">
-            선택한 연월 기준으로, 정식 7가지 품목에 속한 모든 기기의 기기가동 기록(작성된 기록은 그대로, 미작성 기기는 빈 양식)을 품목별 엑셀 파일로 저장합니다.<br>
+            선택한 연월 기준으로, 정식 7가지 품목에 속한 모든 기기의 기기가동 기록(작성된 기록은 그대로, 미작성 기기는 빈 양식)을 <b>PDF 한 파일</b> 또는 <b>엑셀(.xlsx) 한 파일</b>로 저장합니다. (품목 순서 → 기기 순서대로 쪽/시트가 이어집니다)<br>
             아직 만들어지지 않은 기록을 미리 생성하려면 "월별기기가동생성" 탭의 "🗓️ 선택한 연월로 기기가동 생성" 버튼을 이용하세요 (그 탭의 년도/월 기준으로 생성됩니다).
           </div>
           <div class="export-actions">
-            <button class="btn-excel" id="prev-month-save-btn">📊 엑셀로 내보내기</button>
+            <button class="btn-excel" id="prev-month-save-btn">📄 PDF로 내보내기</button>
+            <button class="btn btn-ghost" id="export-xlsx-btn">📊 엑셀로 내보내기</button>
+          </div>
+          <div class="export-note" style="margin-top:14px;margin-bottom:0;">
+            저장 위치 선택 창이 뜨지 않거나 막히면 브라우저 기본 다운로드 폴더로 받습니다.
+            시큐어디스크 같은 보안 프로그램을 쓰는 PC에서는 브라우저의 다운로드 폴더를 허용된 위치로 지정해야 할 수 있으며, 보안 프로그램 때문에 엑셀 내보내기가 되지 않는 PC에서는 PDF를 사용하세요.
           </div>
         </div>
       </div>
@@ -812,10 +848,10 @@
    6. 기록서 UI                : LOAD/CREATE SHEET, LEDGER RENDER(표 전체),
                                 서명칸 공통 렌더러 + 담당자/승인자/작업자/확인자
    7. 저장                    : SAVE(수정 사유 확인 포함)
-   8. 엑셀 내보내기            : 원본 서식 그대로 유지되는 xlsx 생성, 빈칸 사선표시,
-                                여러 기기를 시트로 묶은 워크북 생성
+   8. PDF/엑셀 내보내기        : 엑셀 양식과 같은 모양을 A4 가로로 그려 PDF 생성, 빈칸 사선표시,
+                                 모든 품목·기기를 PDF 한 파일 / 엑셀 한 파일로 저장
    9. 일괄 기능                : 선택한 연월로 기록 생성("기록 작성" 탭, sel-year/sel-month 기준),
-                                월별 일괄 저장/내보내기("월별 엑셀 내보내기" 탭 전용 년/월 선택
+                                월별 일괄 저장/내보내기("월별 PDF 내보내기" 탭 전용 년/월 선택
                                 xls-year/xls-month 기준)
    10. BOOTSTRAP              : 앱 시작
    ============================================================================ */
@@ -838,34 +874,6 @@ let isReadOnly = false;
 const DAYS_MIN_ROWS = 20;
 // 한 페이지에 인쇄할 데이터 행 수 (이 값을 넘어가면 새 페이지로 넘어감)
 const PRINT_ROWS_PER_PAGE = DAYS_MIN_ROWS;
-/* ------------------------------------------------------------
-   인쇄용 칸 높이(pt) 계산 — A4(가로) 용지 한 장에 "표머리글 4줄 + 데이터
-   20행 + 하단 비고/담당자/승인자 3줄"이 위아래 여백 안에 딱 맞도록 역산.
-   (표 폭/열 너비는 손대지 않고, 세로 높이만 A4 인쇄 가능 영역에 맞춤)
-   ------------------------------------------------------------ */
-const PT_PER_IN = 72;
-// A4 짧은 변(210mm)이 가로 인쇄 시 용지의 "세로" 길이가 된다
-const A4_SHORT_SIDE_PT = (210 / 25.4) * PT_PER_IN;
-// 아래 pageMargins의 top/bottom(각 0.6in)과 반드시 같이 맞춰서 바꿔야 함
-const PAGE_MARGIN_TOP_BOTTOM_PT = 0.6 * PT_PER_IN;
-const A4_LANDSCAPE_CONTENT_HEIGHT_PT = A4_SHORT_SIDE_PT - PAGE_MARGIN_TOP_BOTTOM_PT * 2;
-// 표머리글 4줄(제목/년월/기기명·설치장소/표 열제목) 높이 합
-const HEADER_BLOCK_HEIGHT_PT = 24.95 + 17.25 + 17.25 + 17.25;
-// 하단 비고/담당자/승인자 2줄(기본 행높이 16.5pt) + 문서번호·페이지 표시 1줄(18pt)
-const FOOTER_BLOCK_HEIGHT_PT = 16.5 + 16.5 + 18;
-// 이론상 딱 맞는 높이로 계산하면(여유 0), 실제 프린터/엑셀에서는 내부 반올림(포인트→트윕
-// 변환 등) 오차로 페이지 블록(27행)이 A4 한 장보다 아주 살짝(1pt 미만) 더 커져,
-// 강제 페이지 나누기(rowBreaks) 직전에 엑셀이 자체적으로 한 번 더 자동 나누기를 넣어서
-// 문서번호/페이지 표시 줄만 빈 페이지로 밀려나는 문제가 실제 인쇄에서 발견됐다
-// (LibreOffice 미리보기에서는 재현되지 않았음). 그래서 계산상 여유(SAFETY MARGIN)를
-// 넉넉히 두고 그만큼 칸 높이를 살짝 줄여, 실제 인쇄에서도 확실히 한 페이지 안에 들어가게 한다.
-const PRINT_SAFETY_MARGIN_PT = 8;
-// 위 계산 결과를 데이터 행 20개에 균등 배분한 고정 칸 높이
-// (표에 20행이 넘게 들어가 여러 페이지로 나뉘어도, 매 페이지가 이 크기로 A4 한 장에 맞음)
-const PRINT_FIXED_ROW_HEIGHT = (
-  (A4_LANDSCAPE_CONTENT_HEIGHT_PT - HEADER_BLOCK_HEIGHT_PT - FOOTER_BLOCK_HEIGHT_PT - PRINT_SAFETY_MARGIN_PT) / PRINT_ROWS_PER_PAGE
-).toFixed(2);
-
 /* ============================================================
    HELPERS
 ============================================================ */
@@ -949,8 +957,8 @@ const DEVICE_LOCATION_MAP = {
   'RS-301':'합성동 3층','RS-302':'합성동 3층',
   'NF-101':'합성동 1층','NF-102':'합성동 1층','NF-103':'합성동 1층','NF-104':'합성동 1층','NF-105':'합성동 1층','NF-106':'합성동 1층',
   'NF-201':'합성동 2층','NF-202':'합성동 2층',
-  'VD-101':'건조실1','VD-102':'건조실2','VD-103':'건조실3','VD-104':'건조실4','VD-105':'건조실5',
-  'VD-201':'건조실2층1','VD-202':'건조실2층2',
+  'VD-101':'1층 건조실 1','VD-102':'1층 건조실 2','VD-103':'1층 건조실 3','VD-104':'1층 건조실 4','VD-105':'1층 건조실 5',
+  'VD-201':'2층 건조실 1','VD-202':'2층 건조실 2',
   'RG-205':'합성동 2층'
 };
 
@@ -1175,11 +1183,6 @@ function setDirty(v){
    - 우선순위: Firebase(파이어베이스, 무료 클라우드 DB) > Claude 아티팩트
      저장소(window.storage) > 이 브라우저 localStorage(마지막 수단, 이
      PC/브라우저에만 저장되고 공유 안 됨).
-   - 예전에는 사내 PC에서 시작.bat으로 켠 개인 서버(/api/*)를 우선
-     사용했지만, 사람마다 각자 PC에서 서버를 따로 켜면 사람 수만큼 독립된
-     저장소가 생겨 계정/기록이 서로 공유되지 않는 문제가 있어 제거했다.
-     지금은 항상 Firebase를 먼저 사용하므로, 누가 어떤 기기로 접속하든
-     같은 계정/기록을 본다.
    - FIREBASE_CONFIG가 비어있거나 연결에 실패하면 localStorage로 저장되며
      이때는 브라우저마다 로그인 계정이 따로 저장되어 서로 공유되지 않는다.
 
@@ -1316,10 +1319,6 @@ function storageModeLabel(){
 
 // 저장소 우선순위: Firebase(모든 사용자가 공유하는 클라우드 저장소) > Claude 아티팩트
 // 저장소 > 이 브라우저 로컬저장소(마지막 수단, 공유 안 됨).
-// ※ 예전에는 같은 사내망에서 시작.bat으로 켠 개인 PC 서버(/api/health)를 우선
-//   사용했지만, 사람마다 각자 자기 PC에서 서버를 따로 켜면 사람 수만큼 독립된
-//   저장소가 생겨 계정/기록이 서로 공유되지 않는 문제가 있었다. 이제는 항상
-//   Firebase를 우선 사용해 누가 어떤 PC로 접속하든 같은 데이터를 보도록 한다.
 async function initStorageBackend(){
   useFirebase = await initFirebaseBackend();
 }
@@ -1427,6 +1426,25 @@ async function stGet(key, shared){
     return raw===null ? null : {key, value:raw, shared:!!shared};
   }catch(e){ return null; }
 }
+// 읽기에 "실패"한 것과 데이터가 "없는" 것을 구분하는 읽기.
+// 없으면 null, 읽기 자체가 실패하면 예외를 던진다. (실패를 "없음"으로 착각해서
+// 빈 목록으로 덮어쓰는 사고를 막기 위해, 저장 직전에 쓰이는 중요한 읽기에서만 사용)
+async function stGetStrict(key, shared){
+  notifyStorageMode();
+  if(useFirebase && firebaseDb){
+    const snap = await firebaseDb.collection('kv').doc(key).get();
+    if(!snap.exists) return null;
+    const data = snap.data();
+    if(data.value === null || data.value === undefined) return null;
+    return { key, value: data.value, shared: !!shared };
+  }
+  if(hasArtifactStorage()){
+    try{ return await window.storage.get(key, shared); }
+    catch(e){ return null; }
+  }
+  const raw = localStorage.getItem(LS_PREFIX+key);
+  return raw===null ? null : {key, value:raw, shared:!!shared};
+}
 async function stSet(key, value, shared){
   notifyStorageMode();
   if(useFirebase && firebaseDb){
@@ -1462,10 +1480,16 @@ async function stDelete(key, shared){
   }catch(e){ return null; }
 }
 
-async function loadUsers(){
-  const r = await stGet('users', true);
+async function loadUsers(strict){
   let list;
-  try{ list = r ? JSON.parse(r.value) : []; }catch(e){ list = []; }
+  if(strict){
+    // 읽기 실패/손상된 데이터면 예외 -> 호출한 쪽에서 "빈 계정 목록"으로 착각하지 않게 함
+    const r = await stGetStrict('users', true);
+    list = r ? JSON.parse(r.value) : [];
+  } else {
+    const r = await stGet('users', true);
+    try{ list = r ? JSON.parse(r.value) : []; }catch(e){ list = []; }
+  }
   applyUserNameOverrides(list);
   return list;
 }
@@ -1474,8 +1498,15 @@ async function saveUsers(list){
 }
 
 async function loadSheetIndex(){
-  const r = await stGet('sheet-index', true);
-  try{ sheetIndex = r ? JSON.parse(r.value) : []; }catch(e){ sheetIndex = []; }
+  try{
+    const r = await stGetStrict('sheet-index', true);
+    sheetIndex = r ? JSON.parse(r.value) : [];
+  }catch(e){
+    // 읽기에 실패했는데 "기록 없음"으로 보고 이어서 정리/저장하지 않는다
+    console.error(e);
+    toast('기록 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해주세요.', true);
+    return;
+  }
 
   let changed = false;
 
@@ -1487,17 +1518,6 @@ async function loadSheetIndex(){
       changed = true;
     }
   });
-
-  // [삭제됨] 예전에는 여기서 정식 7가지 품목코드(BASE_PRODUCTS)에 속하지 않는
-  // 기록을 "예전 오류/테스트 데이터"로 간주해 Firebase에서 자동으로 영구 삭제했다.
-  // 그런데 BASE_PRODUCTS는 코드에 하드코딩된 배열이라, 새 코드를 배포하면서 이
-  // 목록을 조금만 바꿔도(품목 추가/삭제/오타 수정 등) — 그 다음에 누군가 앱을
-  // 열자마자 이 로직이 실행되며 새 목록에 없는 품목코드로 저장된 기존 기록들이
-  // 전부 공유 저장소(Firebase)에서 삭제되어버리는 문제가 있었다("새 코드를 올릴
-  // 때마다 기존 기록이 사라진다"는 증상의 원인). 데이터를 자동으로 지우는 것은
-  // 너무 위험하므로, 이 정리 로직 자체를 제거했다. BASE_PRODUCTS에 없는 품목코드로
-  // 저장된 기록이 있어도 그냥 그대로 목록에 남겨두고 화면에 보여준다 — 실제로
-  // 정리가 필요하면 사용자가 화면에서 직접 삭제하도록 한다.
 
   // 정리 2: 같은 연/월/기기 조합이 중복 저장되어 있으면, 가장 최근에 수정된
   //         기록만 남기고 나머지는 삭제 (기기 위치값이 나중에 바뀌어 같은
@@ -1532,16 +1552,19 @@ async function loadSheetIndex(){
     }
   }
 
-  if(changed) await saveSheetIndex();
+  if(changed){ try{ await saveSheetIndex(); }catch(e){ console.error(e); } }
 }
 async function saveSheetIndex(){
-  await stSet('sheet-index', JSON.stringify(sheetIndex), true);
+  const r = await stSet('sheet-index', JSON.stringify(sheetIndex), true);
+  if(!r) throw new Error('기록 목록 저장 실패');
 }
 
 // 저장소에서 sheet-index를 (이 브라우저가 들고 있는 캐시가 아니라) 다시 읽어온다.
 async function fetchLatestSheetIndex(){
-  const r = await stGet('sheet-index', true);
-  try{ return r ? JSON.parse(r.value) : []; }catch(e){ return []; }
+  // 읽기에 실패하면 빈 목록을 돌려주지 않고 예외를 던진다
+  // (빈 목록을 기준으로 저장하면 기존 기록 목록이 통째로 덮어써지기 때문)
+  const r = await stGetStrict('sheet-index', true);
+  return r ? JSON.parse(r.value) : [];
 }
 
 // sheet-index를 안전하게 갱신하는 헬퍼.
@@ -1568,8 +1591,13 @@ async function loadSheetById(id){
   const r = await stGet('sheet:'+id, true);
   try{ return r ? JSON.parse(r.value) : null; }catch(e){ return null; }
 }
+async function loadSheetByIdStrict(id){
+  const r = await stGetStrict('sheet:'+id, true);
+  return r ? JSON.parse(r.value) : null;   // 없으면 null, 읽기 실패/손상이면 예외
+}
 async function saveSheetById(id, data){
-  await stSet('sheet:'+id, JSON.stringify(data), true);
+  const r = await stSet('sheet:'+id, JSON.stringify(data), true);
+  if(!r) throw new Error('기록 저장 실패');   // 저장 실패를 "저장되었습니다"로 착각하지 않게 함
 }
 async function deleteSheetById(id){
   await stDelete('sheet:'+id, true);
@@ -1622,8 +1650,6 @@ async function establishSession(){
   };
   return { ok: true };
 }
-
-async function releaseSession(){ /* no-op: 동시 로그인 제한이 없어 별도 세션 해제가 필요 없음 */ }
 
 function updateReadOnlyUI(){
   const banner = document.getElementById('readonly-banner');
@@ -1708,7 +1734,13 @@ document.getElementById('login-form').addEventListener('submit', async (e)=>{
     submitBtn.textContent = on ? '로그인 확인 중…' : restoreLabel;
   }
 
-  const users = await loadUsers();
+  let users;
+  try{ users = await loadUsers(true); }
+  catch(e){
+    console.error(e);
+    showLoginError('계정 정보를 불러오지 못했습니다. 인터넷 연결을 확인하고 잠시 후 다시 시도해주세요.');
+    return;
+  }
 
   if(signupMode){
     if(users.some(u=>u.username===username)){
@@ -1750,7 +1782,16 @@ document.getElementById('login-form').addEventListener('submit', async (e)=>{
 const DEFAULT_ADMIN = { username: 'ajtwh7481', password: '1026', role: 'editor' };
 
 async function initLoginScreen(){
-  let users = await loadUsers();
+  let users;
+  try{ users = await loadUsers(true); }
+  catch(e){
+    // 읽기 실패를 "계정 없음"으로 착각해 기본 관리자만 저장하면 기존 계정이 모두 덮어써진다
+    console.error(e);
+    signupMode = false;
+    renderLoginExtras();
+    showLoginError('계정 정보를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해주세요.');
+    return;
+  }
   if(users.length===0){
     users = [DEFAULT_ADMIN];
     await saveUsers(users);
@@ -1778,12 +1819,20 @@ document.getElementById('reconnect-btn').addEventListener('click', retryFirebase
 
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
   if(isDirty && !confirm('저장하지 않은 변경사항이 있습니다. 로그아웃하시겠습니까?')) return;
-  await releaseSession();
   currentUser = null;
   try{ localStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
   currentSheet = null;
   currentSheetId = null;
+  isEditingExisting = false;
+  isDirty = false;
   isReadOnly = false;
+  // 다음에 로그인하는 계정에게 이전 계정의 화면(열려 있던 기록, 계정 목록)이 남아 보이지 않게 지운다
+  document.getElementById('ledger-area').innerHTML = '';
+  document.getElementById('save-btn').style.display = 'none';
+  document.getElementById('status-chip').textContent = '기록을 불러오세요';
+  document.getElementById('status-chip').className = 'status-chip';
+  document.getElementById('accounts-table-body').innerHTML = '';
+  showOnlyTab('list');
   document.getElementById('readonly-banner').style.display = 'none';
   document.getElementById('sheet-lock-banner').style.display = 'none';
   document.getElementById('app-screen').classList.remove('active');
@@ -1798,6 +1847,9 @@ document.getElementById('logout-btn').addEventListener('click', async ()=>{
 ============================================================ */
 async function enterApp(){
   document.getElementById('login-screen').style.display = 'none';
+  // 목록을 불러오는 동안에도 이전 화면(계정 권한 관리 등)이 보이지 않도록 먼저 "저장된 기록" 탭으로 맞춘다
+  showOnlyTab('list');
+  document.getElementById('accounts-table-body').innerHTML = '';
   document.getElementById('app-screen').classList.add('active');
   document.getElementById('current-user-label').textContent = displayName(currentUser);
   refreshSidebarFootNote();
@@ -1955,7 +2007,7 @@ async function renderRecordList(filter){
   const fMonth = fmRaw ? parseInt(fmRaw,10) : null;
 
   let items = sheetIndex
-    .filter(s => !filter || (s.device||'').toLowerCase().includes(filter) || (s.location||'').toLowerCase().includes(filter))
+    .filter(s => !filter || (s.device||'').toLowerCase().includes(filter) || (locationForDevice(s.device) || s.location || '').toLowerCase().includes(filter))
     .filter(s => fYear===null || s.year===fYear)
     .filter(s => fMonth===null || s.month===fMonth)
     .filter(s => !fpRaw || s.product===fpRaw)
@@ -2005,7 +2057,7 @@ async function renderRecordList(filter){
         <td>${i+1}</td>
         <td>${escapeHtml(s.product)||'-'}${pcWeekTag(s) ? `<span class="wk-tag">${pcWeekTag(s)}${pcWeekStage(s) ? ' · ' + escapeHtml(pcWeekStage(s)) : ''}</span>` : ''}</td>
         <td>${escapeHtml(s.device)||'(기기명 미입력)'}</td>
-        <td>${escapeHtml(s.location)||'-'}</td>
+        <td>${escapeHtml(locationForDevice(s.device) || s.location)||'-'}</td>
         <td>${s.year}-${String(s.month).padStart(2,'0')}</td>
         <td><span class="badge ${status.cls}">${status.label}</span></td>
         <td>${s.manager ? escapeHtml(displayName(s.manager)) : '-'}</td>
@@ -2020,7 +2072,8 @@ async function renderRecordList(filter){
 
   tbody.querySelectorAll('[data-edit]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      await openSheet(btn.dataset.edit);
+      const opened = await openSheet(btn.dataset.edit);
+      if(opened === false) return;
       switchTab('write');
     });
   });
@@ -2039,8 +2092,14 @@ async function renderRecordList(filter){
         toast('입력한 내용이 "삭제"와 일치하지 않아 취소되었습니다.', true);
         return;
       }
-      await deleteSheetById(id);
-      await updateSheetIndex(null, [id]);
+      try{
+        await updateSheetIndex(null, [id]);
+        await deleteSheetById(id);
+      }catch(e){
+        console.error(e);
+        toast('삭제 중 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.', true);
+        return;
+      }
       if(currentSheetId===id){
         await resetActiveSheetView();
       }
@@ -2070,16 +2129,35 @@ document.getElementById('record-filter-product').addEventListener('change', ()=>
 });
 
 /* ============================================================
-   TAB SWITCHING (월별기기가동생성 / 저장된 기록 / 월별 엑셀 내보내기)
+   TAB SWITCHING (월별기기가동생성 / 저장된 기록 / 월별 PDF 내보내기)
 ============================================================ */
-function switchTab(name){
+// 탭 표시만 바꾼다(데이터 조회/그리기 없음). 로그인 직후/로그아웃 때 화면을 먼저 안전한 상태로 돌릴 때도 쓴다.
+function showOnlyTab(name){
   document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab===name));
   document.querySelectorAll('.tab-panel').forEach(p=> p.classList.toggle('active', p.id === 'panel-'+name));
+}
+function switchTab(name){
+  // 관리자가 아닌 계정은 어떤 경로로도 계정 권한 관리 탭을 열 수 없다
+  if(name==='accounts' && !ADMIN_CODES.includes(currentUser)) name = 'list';
+  showOnlyTab(name);
   if(name==='list'){ refreshRecordList(); if(typeof pcEnsureThisWeek==='function') pcEnsureThisWeek(); }
   if(name==='accounts') renderAccountsPanel();
 }
 document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', ()=> switchTab(t.dataset.tab));
+  t.addEventListener('click', ()=>{
+    const name = t.dataset.tab;
+    // "월별기기가동생성" 탭은 다른 탭에서 들어올 때마다 항상 빈 화면으로 시작한다.
+    // (기록을 열어 수정할 때는 "저장된 기록"의 수정 버튼이 switchTab('write')를 직접 호출하므로 영향 없음)
+    if(name==='write' && currentSheet && !document.getElementById('panel-write').classList.contains('active')){
+      if(isDirty && !confirm('저장하지 않은 변경사항이 있습니다.\n버리고 빈 화면으로 시작할까요?\n(취소를 누르면 작성 중이던 기록으로 돌아갑니다)')){
+        switchTab('write');
+        return;
+      }
+      isDirty = false;
+      resetActiveSheetView();
+    }
+    switchTab(name);
+  });
 });
 
 /* ============================================================
@@ -2098,12 +2176,12 @@ async function renderAccountsPanel(){
   const tbody = document.getElementById('accounts-table-body');
   if(!tbody) return;
   if(!ADMIN_CODES.includes(currentUser)){
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-note">관리자(${ADMIN_CODES.map(displayName).join('/')}) 계정만 볼 수 있습니다.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-note">관리자(${ADMIN_CODES.map(displayName).join('/')}) 계정만 볼 수 있습니다.</td></tr>`;
     return;
   }
   const users = await loadUsers();
   if(users.length === 0){
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-note">등록된 계정이 없습니다.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-note">등록된 계정이 없습니다.</td></tr>`;
     return;
   }
   const ROLE_LABELS = { worker:'작업자', checker:'확인자', manager:'담당자' };
@@ -2302,7 +2380,15 @@ function escapeHtml(str){
      자동 전환됨). 아래 함수들은 그 흐름에서 계속 쓰인다.
 ============================================================ */
 async function openSheet(id, metaIfNew){
-  let data = await loadSheetById(id);
+  let data;
+  try{
+    data = await loadSheetByIdStrict(id);
+  }catch(e){
+    // 읽기 실패를 "새 기록"으로 착각해 빈 양식이 열리면, 저장할 때 기존 기록을 덮어쓰게 된다
+    console.error(e);
+    toast('기록을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.', true);
+    return false;
+  }
   isEditingExisting = !!data;
   if(!data){
     if(!metaIfNew){
@@ -2323,7 +2409,7 @@ async function openSheet(id, metaIfNew){
     const idxMeta = sheetIndex.find(s=>s.id===id);
     if(idxMeta && !idxMeta.product){
       idxMeta.product = data.product;
-      await updateSheetIndex([idxMeta], null);
+      try{ await updateSheetIndex([idxMeta], null); }catch(e){ console.error(e); }
     }
   }
   currentSheet = data;
@@ -2358,11 +2444,12 @@ async function openSheet(id, metaIfNew){
   document.getElementById('save-btn').style.display='inline-flex';
   setDirty(false);
   refreshRecordList();
+  return true;
 }
 
 /* ============================================================
    LEDGER RENDER (the "paper" grid)
-   - 화면 편집용 표도 엑셀 인쇄본과 동일하게 PRINT_ROWS_PER_PAGE(20)행이
+   - 화면 편집용 표도 PDF 인쇄본과 동일하게 PRINT_ROWS_PER_PAGE(20)행이
      넘어가면 원본과 똑같은 형식(제목/정보줄/표머리 반복)의 다음 페이지를
      이어서 만든다. 행 추가/삭제 시에는 매번 renderLedger()를 다시 호출해
      페이지 분할을 새로 계산한다 (부분 DOM 갱신 대신 전체 재렌더).
@@ -2441,9 +2528,6 @@ function renderLedger(){
       </div>
     </div>
     <div class="storage-note">${ (()=>{
-        // 주의: 예전에는 여기서 Firebase 여부는 안 보고 hasArtifactStorage()만 확인해서,
-        // 실제 배포본(Firebase로 정상 공유되는 상태)에서도 "독립 실행 모드" 문구가 항상
-        // 잘못 표시되는 버그가 있었다 — storageModeLabel()과 동일하게 firebase를 먼저 확인.
         const mode = storageModeLabel();
         if(mode === 'firebase') return '※ 이 기록은 Firebase 클라우드 저장소에 저장됩니다. 같은 주소로 접속하는 모든 사용자가 조회·수정할 수 있습니다.';
         if(mode === 'artifact') return '※ 이 기록은 팀 공용 저장소에 저장됩니다. 같은 앱을 사용하는 모든 로그인 사용자가 조회·수정할 수 있습니다.';
@@ -2456,8 +2540,8 @@ function renderLedger(){
     pageRows.forEach(row => tbody.appendChild(createRowEl(row)));
   });
 
-  // 행 단위가 아니라 엑셀 인쇄 페이지 단위(PRINT_ROWS_PER_PAGE=20행)로 한 번에 추가한다 —
-  // 화면 편집 표도 엑셀 출력과 똑같이 "페이지" 단위로 나뉘도록 통일.
+  // 행 단위가 아니라 인쇄 페이지 단위(PRINT_ROWS_PER_PAGE=20행)로 한 번에 추가한다 —
+  // 화면 편집 표도 PDF 출력과 똑같이 "페이지" 단위로 나뉘도록 통일.
   document.getElementById('add-page-btn').addEventListener('click', ()=>{
     if(isEditBlocked()){ toast('보기 전용 모드에서는 페이지를 추가할 수 없습니다.', true); return; }
     for(let i=0; i<PRINT_ROWS_PER_PAGE; i++){
@@ -2955,91 +3039,19 @@ document.getElementById('save-btn').addEventListener('click', async ()=>{
 });
 
 /* ============================================================
-   원본 서식 그대로 유지되는 엑셀 파일 생성
-   - 업로드된 원본 "기기가동_기록서.xlsx" 파일을 템플릿으로 삼아
-     테두리/폰트/정렬 등 서식은 그대로 두고 값만 채워 넣습니다.
+   PDF 파일 생성 (월별 내보내기)
+   - 작성 양식(엑셀 양식)과 같은 모양(제목 / 년월 / 기기명·설치장소 / 표 / 비고·담당자·승인자 /
+     문서번호·쪽수)을 A4 가로 한 쪽씩 그려서 PDF로 묶는다. 별도 라이브러리나 글꼴 파일이 필요 없다.
+   - 각 쪽은 브라우저 canvas로 그린 뒤 JPEG로 PDF에 넣는다. (글자는 그림으로 들어가므로
+     PDF 안에서 글자 선택·검색은 되지 않는다.)
+   - 왼쪽 여백은 25mm(펀치 철 여백). 여백이나 열 폭을 바꾸려면 아래 값을 고친다.
 ============================================================ */
-const TEMPLATE_XLSX_BASE64 = "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";
-
-function base64ToUint8Array(base64){
-  const binStr = atob(base64);
-  const bytes = new Uint8Array(binStr.length);
-  for(let i=0;i<binStr.length;i++) bytes[i] = binStr.charCodeAt(i);
-  return bytes;
-}
-
-function xmlEscape(str){
-  return String(str==null?'':str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
-
-// 값이 있으면 inlineStr로 채우고, 없으면 스타일만 유지한 빈 셀을 만든다
-function xCell(ref, style, value){
-  const v = (value===undefined || value===null) ? '' : String(value);
-  if(v === '') return `<c r="${ref}" s="${style}"/>`;
-  return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(v)}</t></is></c>`;
-}
-
-const COL_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
-
-// 담당자/승인자 이름 칸(엑셀)에서 이름 아래에 서명 날짜를 줄바꿈으로 표시할 때 쓰는 서식.
-// buildMultiSheetWorkbookBlob에서 styles.xml에 추가해두는 서식(기존 이름칸 서식과
-// 테두리/정렬은 동일하고 wrapText만 켜짐)과 반드시 같은 인덱스여야 한다.
-const SIGN_NAME_DATE_STYLE = '19';
-
-// 한 페이지 블록의 총 행 수: 머리글 4행 + 데이터 PRINT_ROWS_PER_PAGE(20)행
-// + 비고/담당자/승인자 2행 + ISO문서번호/페이지표시 1행 = 27행.
-// (실제 스캔 원본 한 장이 이 27행으로 A4 한 페이지를 정확히 채우도록
-//  PRINT_FIXED_ROW_HEIGHT가 역산되어 있음 — 상단 상수 블록 참고)
-const PAGE_BLOCK_ROWS = 4 + PRINT_ROWS_PER_PAGE + 2 + 1;
-
-// 시트의 페이지 구성을 계산한다.
-// - 20행이 넘으면, "제목/년월/기기명·설치장소/표머리글 + 데이터 20행(고정) +
-//   비고·담당자·승인자 + 문서번호/페이지표시"로 이루어진 한 페이지 블록을
-//   원본과 완전히 동일한 형태로 통째로 반복해서 여러 페이지를 만든다
-//   (헤더만 반복하는 방식이 아니라, 페이지 자체를 그대로 복제).
-// - 서명(담당자/승인자)과 비고 내용은 마지막 페이지에만 채워 넣고,
-//   그 외 페이지는 스캔 원본처럼 빈 칸 + 사선으로 표시한다.
-// buildSheetXml과 buildDiagonalShapes에서 공통으로 사용.
-function computeSheetLayout(sheet){
-  const allRows = sheet.rows.length >= DAYS_MIN_ROWS
-    ? sheet.rows
-    : [...sheet.rows, ...Array.from({length: DAYS_MIN_ROWS - sheet.rows.length}, blankRow)];
-
-  const pageCount = Math.max(1, Math.ceil(allRows.length / PRINT_ROWS_PER_PAGE));
-  const pages = [];
-  for(let p = 0; p < pageCount; p++){
-    const offset = p * PAGE_BLOCK_ROWS;
-    const rawPageRows = allRows.slice(p * PRINT_ROWS_PER_PAGE, (p + 1) * PRINT_ROWS_PER_PAGE);
-    const rows = rawPageRows.length >= PRINT_ROWS_PER_PAGE
-      ? rawPageRows
-      : [...rawPageRows, ...Array.from({length: PRINT_ROWS_PER_PAGE - rawPageRows.length}, blankRow)];
-
-    const titleRow = offset + 1;
-    const yearMonthRow = offset + 2;
-    const deviceLocRow = offset + 3;
-    const colHeaderRow = offset + 4;
-    const dataStartRow = offset + 5;
-    const dataEndRow = dataStartRow + PRINT_ROWS_PER_PAGE - 1;
-    const footerLabelRow = dataEndRow + 1;
-    const footerEndRow = footerLabelRow + 1;
-    const infoRow = footerEndRow + 1;
-
-    pages.push({
-      pageIndex: p, isLastPage: p === pageCount - 1, rows,
-      titleRow, yearMonthRow, deviceLocRow, colHeaderRow,
-      dataStartRow, dataEndRow, footerLabelRow, footerEndRow, infoRow
-    });
-  }
-
-  const totalRows = pageCount * PAGE_BLOCK_ROWS;
-  // 페이지 나누기: 마지막 페이지를 제외한 각 페이지의 "문서번호/페이지표시" 행
-  // 바로 다음에서 페이지를 끊는다 (각 페이지가 완결된 한 장이 되도록).
-  const pageBreakRows = pages.slice(0, -1).map(pg => pg.infoRow);
-
-  return { pages, pageCount, totalRows, isPaginated: pageCount > 1, pageBreakRows };
-}
+const PDF_DPI = 200;
+const PDF_PAGE_MM = { w: 297, h: 210 };                          // A4 가로
+const PDF_MARGIN_MM = { left: 25, right: 15, top: 10, bottom: 10 };   // 왼쪽 25mm. 표 폭(257mm)은 그대로 두고 왼쪽으로 옮겨 오른쪽 여백을 15mm로 확보
+// 열 폭 비율(A~M). 날짜=A, 사용시간=B, 제조번호=C:D, 작업공정=E, 작업자=F, 확인자=G, 비고=H:M
+const PDF_COL_UNITS = [15, 11.7, 8.5, 8.5, 7.8, 7.02, 7.02, 7, 7, 7, 7, 7, 7];
+const PDF_FONT = "'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Noto Sans KR','Noto Sans CJK KR',sans-serif";
 
 // 데이터 행에 실제로 입력된 값이 하나라도 있는지 확인
 function rowHasData(r){
@@ -3053,336 +3065,428 @@ function lastFilledRowIndex(rows){
   return idx;
 }
 
-function buildSheetXml(sheet){
-  const { pages, pageCount, totalRows, isPaginated, pageBreakRows } = computeSheetLayout(sheet);
-  // 데이터 행은 항상 PRINT_FIXED_ROW_HEIGHT(A4 한 페이지에 20행+머리글+하단이 딱 맞도록
-  // 역산한 고정 높이)를 쓴다 — 20행 이하 한 페이지짜리든, 20행을 넘어 여러 페이지로
-  // 나뉘든 항상 같은 칸 크기로 "고정"되어 매 페이지가 A4 용지에 꽉 차게 인쇄된다.
-  const rowHeightForData = PRINT_FIXED_ROW_HEIGHT;
-
-  const deviceText = sheet.device || '';
-  // 엑셀 담당자/승인자 칸: 이름 아래에 서명 날짜(YYYY-MM-DD)를 줄바꿈으로 함께 표시한다.
-  // 날짜가 없는(예전에 서명된) 기록은 이름만 표시된다.
-  const managerName = sheet.manager ? displayName(sheet.manager) : '';
-  const approverName = sheet.approver ? displayName(sheet.approver) : '';
-  const managerDateText = sheet.manager ? formatSignDate(sheet.managerDate) : '';
-  const approverDateText = sheet.approver ? formatSignDate(sheet.approverDate) : '';
-  const managerCellText = managerDateText ? `${managerName}\n${managerDateText}` : managerName;
-  const approverCellText = approverDateText ? `${approverName}\n${approverDateText}` : approverName;
-
-  const rowsXml = [];
-  const merges = [];
-
-  // 페이지 블록(제목/년월/기기명·설치장소/표머리글 + 데이터 20행 + 비고·담당자·승인자
-  // + 문서번호/페이지표시)을 페이지 수만큼 그대로 반복해서 만든다 — 20행이 넘어가면
-  // 스캔 원본과 완전히 동일한 형태의 페이지를 한 장 더 이어붙이는 것과 같다.
-  // 서명(담당자/승인자)과 비고 내용은 마지막 페이지에만 채우고, 그 외 페이지는
-  // 원본처럼 빈 칸으로 남겨둔다(사선 처리는 buildDiagonalShapes에서).
-  pages.forEach(page=>{
-    const { titleRow, yearMonthRow, deviceLocRow, colHeaderRow, dataStartRow,
-            footerLabelRow, footerEndRow, infoRow, rows, isLastPage, pageIndex } = page;
-
-    // 제목
-    rowsXml.push(`<row r="${titleRow}" spans="1:13" ht="24.95" customHeight="1" x14ac:dyDescent="0.3">`
-      + xCell(`A${titleRow}`,'7','기기가동기록서')
-      + COL_LETTERS.slice(1).map(c=>xCell(`${c}${titleRow}`,'7','')).join('')
-      + `</row>`);
-
-    // 년/월
-    rowsXml.push(`<row r="${yearMonthRow}" spans="1:13" s="11" customFormat="1" ht="17.25" customHeight="1" x14ac:dyDescent="0.3">`
-      + xCell(`A${yearMonthRow}`,'15', `${sheet.year||''}년 ${sheet.month ? String(sheet.month).padStart(2,'0') : ''}월`)
-      + COL_LETTERS.slice(1,-1).map(c=>xCell(`${c}${yearMonthRow}`,'16','')).join('')
-      + xCell(`M${yearMonthRow}`,'17','')
-      + `</row>`);
-
-    // 기기명 / 설치장소
-    // 기기명은 "설치장소"와 똑같이 라벨 칸과 값 칸을 분리한다 (예전엔 "기기명 RS-201"처럼
-    // 한 칸에 라벨+값이 붙어 있었는데, 설치장소처럼 두 칸으로 나눠 표에 선을 넣어달라는 요청).
-    rowsXml.push(`<row r="${deviceLocRow}" spans="1:13" s="11" customFormat="1" ht="17.25" customHeight="1" x14ac:dyDescent="0.3">`
-      + xCell(`A${deviceLocRow}`,'18', '기기명')
-      + xCell(`B${deviceLocRow}`,'18','')
-      + xCell(`C${deviceLocRow}`,'18', deviceText)
-      + xCell(`D${deviceLocRow}`,'18','') + xCell(`E${deviceLocRow}`,'18','')
-      + xCell(`F${deviceLocRow}`,'18','설치장소')
-      + xCell(`G${deviceLocRow}`,'18','') + xCell(`H${deviceLocRow}`,'18','') + xCell(`I${deviceLocRow}`,'18','')
-      + xCell(`J${deviceLocRow}`,'18', sheet.location || '')
-      + xCell(`K${deviceLocRow}`,'18','') + xCell(`L${deviceLocRow}`,'18','') + xCell(`M${deviceLocRow}`,'18','')
-      + `</row>`);
-
-    // 표 머리글
-    rowsXml.push(`<row r="${colHeaderRow}" spans="1:13" ht="17.25" customHeight="1" x14ac:dyDescent="0.3">`
-      + xCell(`A${colHeaderRow}`,'3','날짜')
-      + xCell(`B${colHeaderRow}`,'3','사용시간')
-      + xCell(`C${colHeaderRow}`,'2','제조번호')
-      + xCell(`D${colHeaderRow}`,'2','')
-      + xCell(`E${colHeaderRow}`,'3','작업공정')
-      + xCell(`F${colHeaderRow}`,'3','작업자')
-      + xCell(`G${colHeaderRow}`,'3','확인자')
-      + xCell(`H${colHeaderRow}`,'4','비고')
-      + xCell(`I${colHeaderRow}`,'5','') + xCell(`J${colHeaderRow}`,'5','') + xCell(`K${colHeaderRow}`,'5','') + xCell(`L${colHeaderRow}`,'5','')
-      + xCell(`M${colHeaderRow}`,'6','')
-      + `</row>`);
-
-    // 데이터 행 (이 페이지 몫, 항상 20행)
-    rows.forEach((r, i)=>{
-      const rn = dataStartRow + i;
-      const timeRange = (r.timeStart || r.timeEnd)
-        ? `${r.timeStart||''}${(r.timeStart&&r.timeEnd)?'~':''}${r.timeEnd||''}`
-        : '';
-      rowsXml.push(`<row r="${rn}" spans="1:13" ht="${rowHeightForData}" customHeight="1" x14ac:dyDescent="0.3">`
-        + xCell(`A${rn}`,'13', r.date || '')
-        + xCell(`B${rn}`,'13', timeRange)
-        + xCell(`C${rn}`,'18', r.mfgNo || '')
-        + xCell(`D${rn}`,'13','')
-        + xCell(`E${rn}`,'13', r.process || '')
-        + xCell(`F${rn}`,'13', r.worker ? displayName(r.worker) : '')
-        + xCell(`G${rn}`,'13', r.checker ? displayName(r.checker) : '')
-        + xCell(`H${rn}`,'13', r.note || '')
-        + xCell(`I${rn}`,'13','') + xCell(`J${rn}`,'13','') + xCell(`K${rn}`,'13','')
-        + xCell(`L${rn}`,'13','') + xCell(`M${rn}`,'13','')
-        + `</row>`);
-    });
-
-    // 하단: 비고 / 담당자 / 승인자 (2행 병합)
-    // 비고는 예전처럼 마지막 페이지에만 채우지만, 담당자/승인자 서명(이름+날짜)은
-    // 페이지가 여러 장으로 나뉘어도 매 페이지 하단에 똑같이 표시한다
-    // (1페이지는 서명 없이, 2페이지부터만 서명이 보이던 것을 고침).
-    const pageFooterNote = isLastPage ? (sheet.footerNote || '') : '';
-    const pageManagerName = managerCellText;
-    const pageApproverName = approverCellText;
-    rowsXml.push(`<row r="${footerLabelRow}" spans="1:13" x14ac:dyDescent="0.3">`
-      + xCell(`A${footerLabelRow}`,'2','비고')
-      + xCell(`B${footerLabelRow}`,'2', pageFooterNote)
-      + xCell(`C${footerLabelRow}`,'2','') + xCell(`D${footerLabelRow}`,'2','')
-      + xCell(`E${footerLabelRow}`,'2','') + xCell(`F${footerLabelRow}`,'2','')
-      + xCell(`G${footerLabelRow}`,'2','')
-      + xCell(`H${footerLabelRow}`,'2','담당자')
-      + xCell(`I${footerLabelRow}`, SIGN_NAME_DATE_STYLE, pageManagerName)
-      + xCell(`J${footerLabelRow}`,'2','')
-      + xCell(`K${footerLabelRow}`,'2','승인자')
-      + xCell(`L${footerLabelRow}`, SIGN_NAME_DATE_STYLE, pageApproverName)
-      + xCell(`M${footerLabelRow}`,'2','')
-      + `</row>`);
-    rowsXml.push(`<row r="${footerEndRow}" spans="1:13" x14ac:dyDescent="0.3">`
-      + COL_LETTERS.map(c=>xCell(`${c}${footerEndRow}`,'2','')).join('')
-      + `</row>`);
-    rowsXml.push(`<row r="${infoRow}" spans="1:13" ht="18" customHeight="1" x14ac:dyDescent="0.3">`
-      + xCell(`A${infoRow}`,'14','ISO-FES-001-02')
-      + xCell(`B${infoRow}`,'14','') + xCell(`C${infoRow}`,'14','') + xCell(`D${infoRow}`,'14','')
-      + xCell(`E${infoRow}`,'14','') + xCell(`F${infoRow}`,'14','') + xCell(`G${infoRow}`,'14','')
-      + xCell(`H${infoRow}`,'14','') + xCell(`I${infoRow}`,'14','') + xCell(`J${infoRow}`,'14','')
-      + xCell(`K${infoRow}`,'14','') + xCell(`L${infoRow}`,'14','')
-      + xCell(`M${infoRow}`,'14', `${pageIndex + 1} of ${pageCount}`)
-      + `</row>`);
-
-    merges.push(
-      `A${titleRow}:M${titleRow}`, `A${yearMonthRow}:M${yearMonthRow}`,
-      `A${deviceLocRow}:B${deviceLocRow}`, `C${deviceLocRow}:E${deviceLocRow}`, `F${deviceLocRow}:I${deviceLocRow}`, `J${deviceLocRow}:M${deviceLocRow}`,
-      `C${colHeaderRow}:D${colHeaderRow}`, `H${colHeaderRow}:M${colHeaderRow}`
-    );
-    rows.forEach((r,i)=>{
-      const rn = dataStartRow + i;
-      merges.push(`C${rn}:D${rn}`, `H${rn}:M${rn}`);
-    });
-    merges.push(
-      `A${footerLabelRow}:A${footerEndRow}`,
-      `B${footerLabelRow}:G${footerEndRow}`,
-      `H${footerLabelRow}:H${footerEndRow}`,
-      `I${footerLabelRow}:J${footerEndRow}`,
-      `K${footerLabelRow}:K${footerEndRow}`,
-      `L${footerLabelRow}:M${footerEndRow}`,
-    );
-  });
-
-  const mergeCellsXml = `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>`;
-
-  // 칸 높이를 이미 A4 한 페이지에 정확히 맞도록 계산해뒀으므로(PRINT_FIXED_ROW_HEIGHT),
-  // 엑셀이 세로 방향으로 추가로 축소/확대(fitToHeight)하지 않도록 끄고, 가로 폭만
-  // 한 페이지 너비(fitToWidth=1)에 맞춘다. 20행이 넘는 경우엔 PRINT_ROWS_PER_PAGE(20)행마다
-  // 강제 페이지 나누기(rowBreaks)를 넣어 매 페이지가 A4 한 장 분량으로 딱 나뉜다.
-  // 엑셀 자체의 "한 페이지에 맞춤" 자동 축소를 쓰지 않고 scale="100"(고정 100%)으로
-  // 인쇄한다 — 자동 축소를 켜두면 가로 폭을 줄이는 비율이 세로 칸 높이에도 그대로
-  // 곱해져서, 위에서 A4 크기에 맞춰 계산해둔 PRINT_FIXED_ROW_HEIGHT가 다시 줄어드는
-  // 문제가 있었다. 대신 아래 <cols> 너비 자체를 A4 폭에 맞게 미리 줄여뒀으므로,
-  // 100% 그대로 인쇄해도 가로/세로 모두 A4 한 페이지에 정확히 맞는다.
-  const pageSetupXml = `<pageSetup paperSize="9" orientation="landscape" scale="100"/>`;
-  const rowBreaksXml = (isPaginated && pageBreakRows.length)
-    ? `<rowBreaks count="${pageBreakRows.length}" manualBreakCount="${pageBreakRows.length}">${pageBreakRows.map(r=>`<brk id="${r}" max="16383" man="1"/>`).join('')}</rowBreaks>`
-    : '';
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}"><sheetPr/><dimension ref="A1:M${totalRows}"/><sheetViews><sheetView tabSelected="1" zoomScale="100" zoomScaleNormal="100" workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="16.5" x14ac:dyDescent="0.3"/><cols><col min="1" max="1" width="15" customWidth="1"/><col min="2" max="2" width="11.7" customWidth="1"/><col min="3" max="4" width="8.5" customWidth="1"/><col min="5" max="5" width="7.8" customWidth="1"/><col min="6" max="7" width="7.02" customWidth="1"/><col min="8" max="13" width="6.12" customWidth="1"/></cols><sheetData>${rowsXml.join('')}</sheetData>${mergeCellsXml}<phoneticPr fontId="1" type="noConversion"/><printOptions horizontalCentered="1"/><pageMargins left="0.4" right="0.4" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>${pageSetupXml}<headerFooter differentFirst="0" scaleWithDoc="1" alignWithMargins="1"></headerFooter>${rowBreaksXml}</worksheet>`;
+// 기록서 행을 한 쪽(20행)씩 나눈다. 20행이 넘으면 같은 양식의 쪽이 이어진다.
+function pdfPaginate(sheet){
+  const all = sheet.rows.length >= DAYS_MIN_ROWS
+    ? sheet.rows
+    : sheet.rows.concat(Array.from({length: DAYS_MIN_ROWS - sheet.rows.length}, blankRow));
+  const pageCount = Math.max(1, Math.ceil(all.length / PRINT_ROWS_PER_PAGE));
+  const pages = [];
+  for(let p = 0; p < pageCount; p++){
+    const rows = all.slice(p * PRINT_ROWS_PER_PAGE, (p + 1) * PRINT_ROWS_PER_PAGE);
+    while(rows.length < PRINT_ROWS_PER_PAGE) rows.push(blankRow());
+    pages.push({ rows, pageIndex: p, isLastPage: p === pageCount - 1 });
+  }
+  return pages;
 }
 
+// 한 쪽을 canvas에 그린다.
+function pdfDrawPage(sheet, pg, pageCount){
+  const k = PDF_DPI / 25.4;                                       // 1mm = k px
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(PDF_PAGE_MM.w * k);
+  cv.height = Math.round(PDF_PAGE_MM.h * k);
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+  c.strokeStyle = '#000'; c.fillStyle = '#000';
+  c.lineWidth = Math.max(1, Math.round(0.18 * k));
+  c.textBaseline = 'middle';
+
+  const left = PDF_MARGIN_MM.left, top = PDF_MARGIN_MM.top;
+  const contentW = PDF_PAGE_MM.w - left - PDF_MARGIN_MM.right;
+  const contentH = PDF_PAGE_MM.h - top - PDF_MARGIN_MM.bottom;
+  const totalUnits = PDF_COL_UNITS.reduce((a,b)=>a+b, 0);
+  const ex = [left];                                              // ex[i] = i번째 열의 왼쪽 끝(mm)
+  PDF_COL_UNITS.forEach(u => ex.push(ex[ex.length-1] + u / totalUnits * contentW));
+
+  const H_TITLE = 8.8, H_YM = 6.1, H_DEV = 6.1, H_HEAD = 6.1, H_FOOT = 11.6, H_INFO = 6.35;
+  const H_ROW = (contentH - H_TITLE - H_YM - H_DEV - H_HEAD - H_FOOT - H_INFO) / PRINT_ROWS_PER_PAGE;
+
+  const px = v => v * k;
+  const box = (x1,y1,x2,y2)=> c.strokeRect(px(x1), px(y1), px(x2-x1), px(y2-y1));
+  const line = (x1,y1,x2,y2)=>{ c.beginPath(); c.moveTo(px(x1), px(y1)); c.lineTo(px(x2), px(y2)); c.stroke(); };
+  // 글자: 칸에 안 들어가면 글자 크기를 줄여서 맞춘다
+  const text = (str, x1,y1,x2,y2, o)=>{
+    str = String(str == null ? '' : str);
+    if(!str) return;
+    o = o || {};
+    const align = o.align || 'center';
+    const pad = o.pad == null ? 1.2 : o.pad;
+    const weight = o.bold ? 'bold ' : '';
+    const maxW = px(x2 - x1 - pad * 2);
+    let size = (o.pt || 11) * PDF_DPI / 72;
+    const minSize = 5 * PDF_DPI / 72;
+    c.font = weight + size + 'px ' + PDF_FONT;
+    while(c.measureText(str).width > maxW && size > minSize){ size -= 1; c.font = weight + size + 'px ' + PDF_FONT; }
+    c.textAlign = align;
+    const cx = align === 'center' ? px((x1 + x2) / 2) : (align === 'left' ? px(x1 + pad) : px(x2 - pad));
+    c.fillText(str, cx, px((y1 + y2) / 2));
+  };
+  // 여러 줄 글(하단 비고): 칸 크기에 맞게 줄바꿈하고 필요하면 글자 크기를 줄인다
+  const paragraph = (str, x1,y1,x2,y2)=>{
+    str = String(str || '');
+    if(!str.trim()) return;
+    const pad = 1.5, maxW = px(x2 - x1 - pad * 2), boxH = px(y2 - y1 - 1.2);
+    let size = 10 * PDF_DPI / 72;
+    const minSize = 5 * PDF_DPI / 72;
+    let lines;
+    for(;;){
+      c.font = size + 'px ' + PDF_FONT;
+      lines = [];
+      str.split('\n').forEach(par=>{
+        let cur = '';
+        for(const ch of par){
+          if(c.measureText(cur + ch).width > maxW && cur){ lines.push(cur); cur = ch; } else { cur += ch; }
+        }
+        lines.push(cur);
+      });
+      if(lines.length * size * 1.2 <= boxH || size <= minSize) break;
+      size -= 1;
+    }
+    c.textAlign = 'left';
+    const lh = size * 1.2;
+    let ty = px(y1 + 0.6) + lh / 2;
+    lines.forEach(ln=>{ c.fillText(ln, px(x1 + pad), ty); ty += lh; });
+  };
+  // 우상단 -> 좌하단 사선 (빈 칸에 임의로 적지 못하게 막는 선)
+  const diagonal = (x1,y1,x2,y2)=> line(x2, y1, x1, y2);
+
+  let y = top;
+  // 제목
+  box(ex[0], y, ex[13], y + H_TITLE);
+  text('기기가동기록서', ex[0], y, ex[13], y + H_TITLE, { pt: 20 });
+  y += H_TITLE;
+  // 년/월
+  box(ex[0], y, ex[13], y + H_YM);
+  text(`${sheet.year || ''}년 ${sheet.month ? String(sheet.month).padStart(2,'0') : ''}월`, ex[0], y, ex[13], y + H_YM, { align: 'right', pad: 2 });
+  y += H_YM;
+  // 기기명 / 설치장소
+  [[0,2,'기기명'], [2,5,sheet.device || ''], [5,9,'설치장소'], [9,13,locationForDevice(sheet.device) || sheet.location || '']].forEach(([a,b,t])=>{
+    box(ex[a], y, ex[b], y + H_DEV);
+    text(t, ex[a], y, ex[b], y + H_DEV);
+  });
+  y += H_DEV;
+  // 표 머리글
+  const COLS = [[0,1],[1,2],[2,4],[4,5],[5,6],[6,7],[7,13]];
+  ['날짜','사용시간','제조번호','작업공정','작업자','확인자','비고'].forEach((t,i)=>{
+    box(ex[COLS[i][0]], y, ex[COLS[i][1]], y + H_HEAD);
+    text(t, ex[COLS[i][0]], y, ex[COLS[i][1]], y + H_HEAD);
+  });
+  y += H_HEAD;
+
+  // 데이터 행 (한 쪽 20행)
+  const dataTop = y;
+  pg.rows.forEach((r, i)=>{
+    const ry = dataTop + i * H_ROW;
+    const timeRange = (r.timeStart || r.timeEnd) ? `${r.timeStart || ''}${(r.timeStart && r.timeEnd) ? '~' : ''}${r.timeEnd || ''}` : '';
+    const vals = [r.date, timeRange, r.mfgNo, r.process, r.worker ? displayName(r.worker) : '', r.checker ? displayName(r.checker) : '', r.note];
+    COLS.forEach(([a,b], ci)=>{
+      box(ex[a], ry, ex[b], ry + H_ROW);
+      text(vals[ci], ex[a], ry, ex[b], ry + H_ROW);
+    });
+  });
+  const dataBottom = dataTop + PRINT_ROWS_PER_PAGE * H_ROW;
+
+  // 하단: 비고 / 담당자 / 승인자 (서명 이름과 날짜는 모든 쪽에 표시, 비고 내용은 마지막 쪽에만)
+  const fy = dataBottom;
+  const note = pg.isLastPage ? (sheet.footerNote || '') : '';
+  box(ex[0], fy, ex[1], fy + H_FOOT);  text('비고', ex[0], fy, ex[1], fy + H_FOOT);
+  box(ex[1], fy, ex[7], fy + H_FOOT);  paragraph(note, ex[1], fy, ex[7], fy + H_FOOT);
+  box(ex[7], fy, ex[8], fy + H_FOOT);  text('담당자', ex[7], fy, ex[8], fy + H_FOOT);
+  box(ex[8], fy, ex[10], fy + H_FOOT);
+  box(ex[10], fy, ex[11], fy + H_FOOT); text('승인자', ex[10], fy, ex[11], fy + H_FOOT);
+  box(ex[11], fy, ex[13], fy + H_FOOT);
+  const signText = (who, dateIso, x1, x2)=>{
+    if(!who) return;
+    const d = formatSignDate(dateIso);
+    if(d){
+      text(displayName(who), x1, fy, x2, fy + H_FOOT * 0.58);
+      text(d, x1, fy + H_FOOT * 0.5, x2, fy + H_FOOT, { pt: 9 });
+    } else {
+      text(displayName(who), x1, fy, x2, fy + H_FOOT);
+    }
+  };
+  signText(sheet.manager, sheet.managerDate, ex[8], ex[10]);
+  signText(sheet.approver, sheet.approverDate, ex[11], ex[13]);
+
+  // 문서번호 / 쪽수
+  const iy = fy + H_FOOT;
+  text('ISO-FES-001-02', ex[0], iy, ex[7], iy + H_INFO, { align: 'left', pt: 10, pad: 0.5 });
+  text(`${pg.pageIndex + 1} of ${pageCount}`, ex[7], iy, ex[13], iy + H_INFO, { align: 'right', pt: 10, pad: 0.5 });
+
+  // 빈 칸 사선
+  const lastFilled = lastFilledRowIndex(pg.rows);
+  if(lastFilled < pg.rows.length - 1){
+    diagonal(ex[0], dataTop + (lastFilled + 1) * H_ROW, ex[13], dataBottom);     // 입력이 끝난 다음 줄부터 표 끝까지
+  }
+  if(!(pg.isLastPage && String(sheet.footerNote || '').trim())){
+    diagonal(ex[1], fy, ex[7], fy + H_FOOT);                                      // 비고 내용이 없는 하단 비고칸
+  }
+  pg.rows.forEach((r, i)=>{
+    if(!rowHasData(r) || String(r.note || '').trim()) return;                     // 다른 칸은 썼는데 비고만 빈 줄
+    diagonal(ex[7], dataTop + i * H_ROW, ex[13], dataTop + (i + 1) * H_ROW);
+  });
+  return cv;
+}
+
+// JPEG 이미지를 한 쪽에 하나씩 넣은 PDF 파일(Blob)을 만든다
+function buildPdfFromJpegs(images){
+  const enc = new TextEncoder();
+  const chunks = [], offsets = [];
+  let pos = 0;
+  const push = d => { const b = (typeof d === 'string') ? enc.encode(d) : d; chunks.push(b); pos += b.length; };
+  const beginObj = n => { offsets[n] = pos; push(`${n} 0 obj\n`); };
+  const PW = (PDF_PAGE_MM.w / 25.4 * 72).toFixed(2), PH = (PDF_PAGE_MM.h / 25.4 * 72).toFixed(2);
+  const n = images.length;
+  // 객체 번호: 1=문서, 2=쪽 목록, 쪽 i(0부터) = 3+3i(쪽) / 4+3i(내용) / 5+3i(이미지)
+  push('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n');
+  beginObj(1); push('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  beginObj(2); push(`<< /Type /Pages /Kids [${images.map((_, i)=> `${3 + 3 * i} 0 R`).join(' ')}] /Count ${n} >>\nendobj\n`);
+  images.forEach((img, i)=>{
+    const pg = 3 + 3 * i, ct = 4 + 3 * i, im = 5 + 3 * i;
+    beginObj(pg);
+    push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ct} 0 R >>\nendobj\n`);
+    const content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    beginObj(ct);
+    push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`);
+    beginObj(im);
+    push(`<< /Type /XObject /Subtype /Image /Width ${img.w} /Height ${img.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.bytes.length} >>\nstream\n`);
+    push(img.bytes);
+    push('\nendstream\nendobj\n');
+  });
+  const total = 2 + 3 * n;
+  const xrefPos = pos;
+  let xref = `xref\n0 ${total + 1}\n0000000000 65535 f \n`;
+  for(let i = 1; i <= total; i++) xref += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+  push(xref);
+  push(`trailer\n<< /Size ${total + 1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`);
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+
+// 한 품목의 모든 기기(시트)를 한 개의 PDF로 만든다. sheetList: [{ device, sheet }, ...] (기기 순서 = 쪽 순서)
+async function buildProductPdfBlob(sheetList){
+  const images = [];
+  for(const entry of sheetList){
+    const pages = pdfPaginate(entry.sheet);
+    for(const pg of pages){
+      const cv = pdfDrawPage(entry.sheet, pg, pages.length);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.92));
+      images.push({ bytes: new Uint8Array(await blob.arrayBuffer()), w: cv.width, h: cv.height });
+      await new Promise(r => setTimeout(r, 0));          // 화면이 멈추지 않도록 쪽마다 한 번 쉰다
+    }
+  }
+  return buildPdfFromJpegs(images);
+}
+
+
 /* ============================================================
-   빈 칸 사선(빗금) 표시
-   - "선택한 월 저장" 및 엑셀 다운로드 시, 입력이 끝난 부분부터
-     아래쪽 빈 칸까지 대각선을 그어 이후 임의 기재를 방지한다.
-   - 메인 표: 입력된 마지막 행 다음 행부터 표 맨 아래 행까지, M열 위쪽에서
-     A열 아래쪽으로 대각선 하나
-   - 하단 비고 박스: 비고에 입력된 내용이 없을 때만, G열 위쪽에서 B열 아래쪽으로 대각선
-   - 각 날짜 행의 비고 칸(H~M): 그 행에 다른 데이터는 있는데 비고만
-     비어 있으면, 그 행의 비고 칸에만 대각선
+   엑셀(.xlsx) 파일 생성 (월별 내보내기)
+   - PDF와 같은 양식을 엑셀 시트로 만든다. 기기 1대 = 시트 1장(탭 이름: 품목_기기), 한 파일에
+     모든 품목/기기(예: 22대 = 22개 시트)가 들어간다. 별도 라이브러리 없이 이미 불러온 JSZip으로
+     .xlsx(OOXML) 파일을 직접 구성한다.
+   - A4 가로, 여백은 PDF와 같음(좌 25 / 우 15 / 상하 10mm), "한 페이지에 맞춤".
+   - 모든 시트 보호 + 통합 문서 구조 보호(암호는 XLSX_PROTECT_PASSWORD). 보기·인쇄는 되고 수정은 막힌다.
+   - 빈 줄도 양식 그대로 칸마다 테두리가 있는 빈 칸으로 두고(칸 통합 없음), 입력이 끝난 다음 줄부터
+     표 끝까지의 사선은 PDF와 똑같이 선 도형으로 긋는다.
+   - 20행을 넘는 기기는 같은 시트 아래로 양식이 이어지고 쪽 구분선이 들어간다.
 ============================================================ */
-// leftCol0/rightCol0/topRow0/bottomRow0: 0-based 셀 경계(드로잉 앵커 좌표)
-// 대각선은 항상 "우상단 -> 좌하단" 방향이 되도록 flipH를 적용한다
-function diagLineXml(shapeId, name, leftCol0, topRow0, rightCol0, bottomRow0){
-  return `<xdr:twoCellAnchor editAs="oneCell">`
-    + `<xdr:from><xdr:col>${leftCol0}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${topRow0}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>`
-    + `<xdr:to><xdr:col>${rightCol0}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${bottomRow0}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`
-    + `<xdr:cxnSp macro=""><xdr:nvCxnSpPr><xdr:cNvPr id="${shapeId}" name="${name}"/><xdr:cNvCxnSpPr/></xdr:nvCxnSpPr>`
+// 엑셀 보호: 시트 보호 + 통합 문서 구조 보호(시트 추가/삭제/이름·순서 변경 금지). 열람·인쇄·복사는 가능, 수정은 암호 필요.
+// 암호를 바꾸려면 아래 값을 고친다.
+const XLSX_PROTECT_PASSWORD = '204204';
+// 엑셀 전통 방식(16비트) 암호 해시 -> 4자리 16진수
+function xlsxPasswordHash(pw){
+  let h = 0;
+  for(let i = pw.length - 1; i >= 0; i--){
+    h = ((h >> 14) & 1) | ((h << 1) & 0x7fff);
+    h ^= pw.charCodeAt(i);
+  }
+  h = ((h >> 14) & 1) | ((h << 1) & 0x7fff);
+  h ^= pw.length;
+  h ^= 0xCE4B;
+  return h.toString(16).toUpperCase().padStart(4, '0');
+}
+const XLSX_TOTAL_PX = 960;            // 열 폭 합계(px). 약 254mm → 인쇄 가능 폭(257mm) 안에 들어감
+const XLSX_ROWS_PER_BLOCK = 26;       // 한 쪽을 이루는 행 수(제목~쪽수)
+function xmlEsc(v){
+  return String(v == null ? '' : v)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function xlsxCol(i){ return String.fromCharCode(65 + i); }
+function xlsxSheetName(product, device, used){
+  const base = (device ? `${product || ''}_${device}` : String(product || '')).replace(/[\\\/\?\*\[\]:]/g, '-').trim().slice(0, 31) || 'Sheet';
+  let name = base, n = 2;
+  while(used.has(name.toLowerCase())){
+    const suf = '_' + (n++);
+    name = base.slice(0, 31 - suf.length) + suf;
+  }
+  used.add(name.toLowerCase());
+  return name;
+}
+// 스타일 번호: 1 기본칸 / 2 제목 / 3 우측정렬 / 4 사선칸 / 5 비고(줄바꿈) / 6 서명(줄바꿈) / 7,8 테두리 없는 좌/우 / 9 머리글(굵게)
+// 기기 1대 = 시트 1장. 20행을 넘으면 같은 양식이 아래로 이어지고 쪽 구분선이 들어간다.
+// 빈 줄도 칸마다 테두리가 있는 양식 그대로 두며(칸 통합 없음), 제조번호(C:D)·비고(H:M)만 양식대로 합쳐져 있다.
+function xlsxSheetXml(sheet, selected){
+  const pages = pdfPaginate(sheet);
+  const cells = new Map(), heights = new Map(), merges = [];
+  const put = (r, c, v, s)=>{ if(!cells.has(r)) cells.set(r, new Map()); cells.get(r).set(c, { v: v == null ? '' : v, s }); };
+  const merge = (r1, c1, r2, c2, v, s)=>{
+    for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) put(r, c, (r === r1 && c === c1) ? v : '', s);
+    if(r1 !== r2 || c1 !== c2) merges.push(`${xlsxCol(c1)}${r1}:${xlsxCol(c2)}${r2}`);
+  };
+  const breaks = [], lines = [];
+  pages.forEach((pg, pi)=>{
+    const R = n => pi * XLSX_ROWS_PER_BLOCK + n;
+    if(pi > 0) breaks.push(pi * XLSX_ROWS_PER_BLOCK);
+    const lastFilled = lastFilledRowIndex(pg.rows);
+    heights.set(R(1), 24.9); heights.set(R(2), 17.3); heights.set(R(3), 17.3); heights.set(R(4), 17.3);
+    heights.set(R(25), 32.9); heights.set(R(26), 18);
+    merge(R(1), 0, R(1), 12, '기기가동기록서', 2);
+    merge(R(2), 0, R(2), 12, `${sheet.year || ''}년 ${sheet.month ? String(sheet.month).padStart(2,'0') : ''}월`, 3);
+    merge(R(3), 0, R(3), 1, '기기명', 1);
+    merge(R(3), 2, R(3), 4, sheet.device || '', 1);
+    merge(R(3), 5, R(3), 8, '설치장소', 1);
+    merge(R(3), 9, R(3), 12, locationForDevice(sheet.device) || sheet.location || '', 1);
+    put(R(4), 0, '날짜', 9); put(R(4), 1, '사용시간', 9);
+    merge(R(4), 2, R(4), 3, '제조번호', 9);
+    put(R(4), 4, '작업공정', 9); put(R(4), 5, '작업자', 9); put(R(4), 6, '확인자', 9);
+    merge(R(4), 7, R(4), 12, '비고', 9);
+
+    for(let i = 0; i < PRINT_ROWS_PER_PAGE; i++){
+      const r = pg.rows[i] || blankRow(), row = R(5 + i);
+      heights.set(row, 20);
+      const timeRange = (r.timeStart || r.timeEnd) ? `${r.timeStart || ''}${(r.timeStart && r.timeEnd) ? '~' : ''}${r.timeEnd || ''}` : '';
+      put(row, 0, r.date, 1);
+      put(row, 1, timeRange, 1);
+      merge(row, 2, row, 3, r.mfgNo, 1);
+      put(row, 4, r.process, 1);
+      put(row, 5, r.worker ? displayName(r.worker) : '', 1);
+      put(row, 6, r.checker ? displayName(r.checker) : '', 1);
+      // 다른 칸은 썼는데 비고만 빈 줄은 사선, 완전히 빈 줄은 일반 빈 칸
+      const hasNote = String(r.note || '').trim() !== '';
+      merge(row, 7, row, 12, r.note, (rowHasData(r) && !hasNote) ? 4 : 1);
+    }
+
+    // 입력이 끝난 다음 줄부터 표 끝까지 사선(PDF와 동일). 칸을 합치지 않고 선 도형으로 긋는다.
+    if(lastFilled < PRINT_ROWS_PER_PAGE - 1){
+      lines.push({ fromRow: R(5 + lastFilled + 1) - 1, toRow: R(24) });   // 0부터 센 행 경계
+    }
+
+    const note = pg.isLastPage ? (sheet.footerNote || '') : '';
+    put(R(25), 0, '비고', 9);
+    merge(R(25), 1, R(25), 6, note, String(note).trim() ? 5 : 4);
+    put(R(25), 7, '담당자', 9);
+    put(R(25), 10, '승인자', 9);
+    const sign = (who, dateIso)=>{
+      if(!who) return '';
+      const d = formatSignDate(dateIso);
+      return d ? `${displayName(who)}\n${d}` : displayName(who);
+    };
+    merge(R(25), 8, R(25), 9, sign(sheet.manager, sheet.managerDate), 6);
+    merge(R(25), 11, R(25), 12, sign(sheet.approver, sheet.approverDate), 6);
+    merge(R(26), 0, R(26), 6, 'ISO-FES-001-02', 7);
+    merge(R(26), 7, R(26), 12, `${pg.pageIndex + 1} of ${pages.length}`, 8);
+  });
+
+  const totalUnits = PDF_COL_UNITS.reduce((a,b)=>a+b, 0);
+  const colsXml = PDF_COL_UNITS.map((u, i)=>{
+    const w = (u / totalUnits * XLSX_TOTAL_PX / 7).toFixed(3);
+    return `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`;
+  }).join('');
+  const maxRow = pages.length * XLSX_ROWS_PER_BLOCK;
+  let rowsXml = '';
+  for(let r = 1; r <= maxRow; r++){
+    const rowCells = cells.get(r) || new Map();
+    let cx = '';
+    [...rowCells.keys()].sort((a,b)=>a-b).forEach(c=>{
+      const cell = rowCells.get(c), ref = xlsxCol(c) + r;
+      cx += (cell.v === '' || cell.v == null)
+        ? `<c r="${ref}" s="${cell.s}"/>`
+        : `<c r="${ref}" s="${cell.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
+    });
+    rowsXml += `<row r="${r}" ht="${heights.get(r) || 20}" customHeight="1">${cx}</row>`;
+  }
+  const brk = breaks.length
+    ? `<rowBreaks count="${breaks.length}" manualBreakCount="${breaks.length}">${breaks.map(b=>`<brk id="${b}" max="16383" man="1"/>`).join('')}</rowBreaks>` : '';
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`
+    + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`
+    + `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:M${maxRow}"/>`
+    + `<sheetViews><sheetView showGridLines="0" ${selected ? 'tabSelected="1" ' : ''}workbookViewId="0"/></sheetViews>`
+    + `<sheetFormatPr defaultRowHeight="15"/><cols>${colsXml}</cols><sheetData>${rowsXml}</sheetData>`
+    + `<sheetProtection password="${xlsxPasswordHash(XLSX_PROTECT_PASSWORD)}" sheet="1" objects="1" scenarios="1"/>`
+    + `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells>`
+    + `<pageMargins left="0.984" right="0.591" top="0.394" bottom="0.394" header="0.2" footer="0.2"/>`
+    + `<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="${pages.length}"/>${brk}${lines.length ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
+  return { xml, lines };
+}
+
+// 사선(선 도형) 그림 파일. 표 전체 폭(A~M)에 걸쳐 우상단 → 좌하단으로 긋는다.
+function xlsxDrawingXml(lines){
+  const anchors = lines.map((ln, i)=>
+    `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${ln.fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>`
+    + `<xdr:to><xdr:col>13</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${ln.toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`
+    + `<xdr:cxnSp macro=""><xdr:nvCxnSpPr><xdr:cNvPr id="${i + 2}" name="사선 ${i + 1}"/><xdr:cNvCxnSpPr/></xdr:nvCxnSpPr>`
     + `<xdr:spPr><a:xfrm flipH="1"><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom>`
-    + `<a:ln w="9525" cap="flat"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></xdr:spPr>`
-    + `</xdr:cxnSp><xdr:clientData/></xdr:twoCellAnchor>`;
+    + `<a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></xdr:spPr></xdr:cxnSp><xdr:clientData/></xdr:twoCellAnchor>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors}</xdr:wsDr>`;
 }
 
-function buildDrawingXml(shapesXml){
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${shapesXml.join('')}</xdr:wsDr>`;
-}
+const XLSX_STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="4">
+<font><sz val="11"/><name val="Calibri"/></font>
+<font><sz val="10"/><name val="맑은 고딕"/><family val="2"/><charset val="129"/></font>
+<font><b/><sz val="10"/><name val="맑은 고딕"/><family val="2"/><charset val="129"/></font>
+<font><b/><sz val="20"/><name val="맑은 고딕"/><family val="2"/><charset val="129"/></font>
+</fonts>
+<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+<borders count="3">
+<border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>
+<border diagonalUp="1"><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal style="thin"><color auto="1"/></diagonal></border>
+</borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="10">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="49" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" shrinkToFit="1"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" indent="1"/></xf>
+<xf numFmtId="49" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="49" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="49" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" shrinkToFit="1"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
 
-// 시트 내용을 보고 필요한 사선 도형 XML 목록을 만든다 (없으면 빈 배열)
-// 페이지가 여러 장이어도 각 페이지가 스캔 원본과 똑같은 독립된 한 장이므로,
-// 사선도 페이지마다 그 페이지 안에서만(그 페이지의 데이터/비고 박스 범위 안에서만)
-// 완결되도록 각각 따로 계산한다 — 도형이 페이지 나누기를 넘어가면 실제 엑셀에서
-// 다음 페이지에 사선이 인쇄되지 않는 문제가 있었기 때문.
-function buildDiagonalShapes(sheet){
-  const layout = computeSheetLayout(sheet);
-  const shapes = [];
-  let shapeId = 2;
-
-  layout.pages.forEach(page=>{
-    const { rows, dataStartRow, dataEndRow, footerLabelRow, footerEndRow, isLastPage, pageIndex } = page;
-
-    // 메인 표: 이 페이지에서 입력된 마지막 행 다음 행부터, 이 페이지의 마지막
-    // 데이터 행까지 대각선 (표 전체 폭 A~M 기준)
-    const lastFilled = lastFilledRowIndex(rows);
-    if(lastFilled < rows.length - 1){
-      const diagStartRow = dataStartRow + lastFilled + 1;
-      shapes.push(diagLineXml(shapeId++, `MainTableDiagonal${pageIndex}`, 0, diagStartRow - 1, 13, dataEndRow));
+// entries: [{ product, device, sheet }, ...] → 기기마다 시트 1개인 .xlsx 한 파일(Blob)
+async function buildXlsxBlob(entries){
+  if(typeof JSZip === 'undefined') throw new Error('JSZip 없음');
+  const zip = new JSZip();
+  const used = new Set();
+  const names = entries.map(e => xlsxSheetName(e.product, e.device, used));   // 기기 1대 = 시트 1장
+  const results = [];
+  for(let i = 0; i < entries.length; i++){
+    results.push(xlsxSheetXml(entries[i].sheet, i === 0));
+    await new Promise(r => setTimeout(r, 0));
+  }
+  const drawOverrides = results.map((r, i)=> r.lines.length
+    ? `<Override PartName="/xl/drawings/drawing${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>` : '').join('');
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${entries.map((_, i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}${drawOverrides}</Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookProtection workbookPassword="${xlsxPasswordHash(XLSX_PROTECT_PASSWORD)}" lockStructure="1"/><bookViews><workbookView activeTab="0"/></bookViews><sheets>${names.map((n, i)=>`<sheet name="${xmlEsc(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`);
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${entries.map((_, i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${entries.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file('xl/styles.xml', XLSX_STYLES_XML);
+  results.forEach((r, i)=>{
+    zip.file(`xl/worksheets/sheet${i+1}.xml`, r.xml);
+    if(r.lines.length){
+      zip.file(`xl/worksheets/_rels/sheet${i+1}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${i+1}.xml"/></Relationships>`);
+      zip.file(`xl/drawings/drawing${i+1}.xml`, xlsxDrawingXml(r.lines));
     }
-
-    // 하단 비고 박스: 실제 비고 내용은 마지막 페이지에만 들어가므로, 그 외
-    // 페이지는 항상 빈 칸으로 취급해 사선을 긋는다.
-    const footerNoteFilled = isLastPage && !!(sheet.footerNote && String(sheet.footerNote).trim());
-    if(!footerNoteFilled){
-      shapes.push(diagLineXml(shapeId++, `RemarkBoxDiagonal${pageIndex}`, 1, footerLabelRow - 1, 7, footerEndRow));
-    }
-
-    // 각 날짜 행: 다른 항목은 입력되어 있는데 비고만 비어 있으면,
-    // 그 행의 비고 칸(H~M)에만 대각선을 긋는다 (행 전체가 비어 있으면
-    // 이미 위의 MainTableDiagonal이 그 행을 덮으므로 중복 처리하지 않음)
-    rows.forEach((r, i)=>{
-      if(!rowHasData(r)) return;
-      const noteFilled = !!(r.note && String(r.note).trim());
-      if(noteFilled) return;
-      const rn = dataStartRow + i;
-      shapes.push(diagLineXml(shapeId++, `NoteDiagonal${pageIndex}_${i}`, 7, rn - 1, 13, rn));
-    });
   });
-
-  return shapes;
-}
-
-// 엑셀 시트 탭 이름으로 쓸 수 없는 문자 제거 + 31자 길이 제한
-// (엑셀 시트명 금지문자: \ / ? * [ ] : , 앞뒤 공백/작은따옴표도 피함)
-function sanitizeSheetName(name){
-  let n = String(name || '시트').replace(/[\\/?*\[\]:]/g, '').trim();
-  if(!n) n = '시트';
-  return n.slice(0, 31);
-}
-
-/* ============================================================
-   여러 기기를 "시트(탭)"로 묶은 엑셀 워크북 생성
-   - sheetList: [{ device, sheet }, ...] 형태의 배열. 배열에 담긴
-     순서가 그대로 엑셀 하단 탭 순서가 된다.
-     (예: [RS-302, RG-203, NF-104(여과기), VD-102(건조기)])
-   - 하나의 xlsx 파일 안에 기기별 시트를 만들고, 각 시트 서식/내용은
-     buildSheetXml/buildDiagonalShapes(단일 시트용 로직)을 그대로 재사용한다.
-============================================================ */
-async function buildMultiSheetWorkbookBlob(sheetList){
-  const zip = await JSZip.loadAsync(base64ToUint8Array(TEMPLATE_XLSX_BASE64));
-
-  // (제조번호 칸은 줄임 서식을 쓰지 않고 칸 너비를 넓혀 다른 글자와 같은 크기로 표시)
-  // 제조번호처럼 칸보다 글자가 길어질 수 있는 셀은 칸을 벗어나지 않도록
-  // "셀에 맞게 줄임(shrinkToFit)" 스타일을 하나 추가 (워크북 전체에서 공유되는 서식이라 한 번만 추가)
-  let stylesXml = await zip.file('xl/styles.xml').async('string');
-  stylesXml = stylesXml
-    .replace('<cellXfs count="13">', '<cellXfs count="20">')
-    .replace('</cellXfs>', '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" shrinkToFit="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>');
-  zip.file('xl/styles.xml', stylesXml);
-  // 위에서 추가한 마지막 서식(인덱스 19, = SIGN_NAME_DATE_STYLE)은 기존
-  // "담당자/승인자 이름" 칸(스타일 2)과 테두리/정렬은 같지만 wrapText만 켜둔 것 —
-  // 이름 아래에 서명 날짜를 줄바꿈으로 함께 넣을 때(buildSheetXml) 이 스타일을 쓴다.
-
-  // 원본 템플릿에 있던 단일 시트 관련 파츠는 여기서 새로 만들 것이므로 정리
-  zip.remove('xl/printerSettings/printerSettings1.bin');
-  zip.remove('xl/worksheets/sheet1.xml');
-  zip.remove('xl/worksheets/_rels/sheet1.xml.rels');
-
-  const sheetTagsXml = [];
-  const relsTagsXml = [];
-  const contentTypeOverrides = [];
-  let nextRid = 10; // 기존 workbook.xml.rels의 rId1~4(시트/테마/스타일/공유문자열)과 겹치지 않게
-
-  sheetList.forEach((entry, i)=>{
-    const idx = i + 1;
-    let sheetXml = buildSheetXml(entry.sheet);
-    // 같은 워크북 안에서 탭이 여러 개 동시에 "선택됨" 상태가 되지 않도록,
-    // 첫 번째 시트만 tabSelected="1"을 유지하고 나머지는 지운다.
-    if(i > 0) sheetXml = sheetXml.replace('tabSelected="1" ', '');
-
-    const diagShapes = buildDiagonalShapes(entry.sheet);
-    if(diagShapes.length){
-      zip.file(`xl/drawings/drawing${idx}.xml`, buildDrawingXml(diagShapes));
-      contentTypeOverrides.push(`<Override PartName="/xl/drawings/drawing${idx}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
-      zip.file(`xl/worksheets/_rels/sheet${idx}.xml.rels`,
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${idx}.xml"/></Relationships>`);
-      sheetXml = sheetXml.replace('</worksheet>', '<drawing r:id="rId1"/></worksheet>');
-    }
-    zip.file(`xl/worksheets/sheet${idx}.xml`, sheetXml);
-    contentTypeOverrides.push(`<Override PartName="/xl/worksheets/sheet${idx}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
-
-    const rid = `rId${nextRid++}`;
-    const rawSheetName = sanitizeSheetName(entry.device);
-    const tabName = xmlEscape(rawSheetName);
-    sheetTagsXml.push(`<sheet name="${tabName}" sheetId="${idx}" r:id="${rid}"/>`);
-    relsTagsXml.push(`<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${idx}.xml"/>`);
-    // 참고: 예전에는 "인쇄 제목(Print Titles, _xlnm.Print_Titles $1:$4)"으로 표 헤더
-    // 4줄만 매 페이지에 반복시켰지만, 지금은 buildSheetXml이 페이지 블록(제목/년월/
-    // 기기명·설치장소/표머리글/데이터20행/비고·담당자·승인자) 자체를 페이지마다
-    // 실제 행으로 통째로 반복해서 만들기 때문에 Print Titles를 쓰면 안 된다
-    // (쓰면 이전 페이지의 헤더가 다음 페이지 위에 한 번 더 겹쳐 인쇄됨).
-  });
-
-  // xl/workbook.xml: <sheets>...</sheets>를 우리가 만든 시트 목록으로 교체 (순서 = 탭 순서)
-  let workbookXml = await zip.file('xl/workbook.xml').async('string');
-  workbookXml = workbookXml.replace(/<sheets>[\s\S]*?<\/sheets>/, `<sheets>${sheetTagsXml.join('')}</sheets>`);
-  zip.file('xl/workbook.xml', workbookXml);
-
-  // xl/_rels/workbook.xml.rels: 기존 시트(rId1) 관계만 제거하고, 테마/스타일/공유문자열 관계는 그대로 유지
-  let relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
-  relsXml = relsXml.replace(/<Relationship Id="rId1"[^>]*\/>/, '');
-  relsXml = relsXml.replace('</Relationships>', relsTagsXml.join('') + '</Relationships>');
-  zip.file('xl/_rels/workbook.xml.rels', relsXml);
-
-  // [Content_Types].xml: 기존 sheet1.xml 항목 제거 후 새 시트/도형 항목 추가
-  let contentTypesXml = await zip.file('[Content_Types].xml').async('string');
-  contentTypesXml = contentTypesXml.replace(
-    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>', '');
-  contentTypesXml = contentTypesXml.replace('</Types>', contentTypeOverrides.join('') + '</Types>');
-  zip.file('[Content_Types].xml', contentTypesXml);
-
-  // docProps: 문서 속성(작성자 등) + 시트 이름 목록 갱신
-  const authorName = (currentUser && displayName(currentUser)) || '기기가동기록서';
-  const nowIso = new Date().toISOString().replace(/\.\d+Z$/,'Z');
-  zip.file('docProps/core.xml',
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:creator>${xmlEscape(authorName)}</dc:creator><cp:lastModifiedBy>${xmlEscape(authorName)}</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:modified></cp:coreProperties>`);
-  const titleEntries = sheetList.map(e=>`<vt:lpstr>${xmlEscape(sanitizeSheetName(e.device))}</vt:lpstr>`).join('');
-  zip.file('docProps/app.xml',
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Microsoft Excel</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>워크시트</vt:lpstr></vt:variant><vt:variant><vt:i4>${sheetList.length}</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="${sheetList.length}" baseType="lpstr">${titleEntries}</vt:vector></TitlesOfParts><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion></Properties>`);
-
-  return zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
 }
 
 function downloadBlob(blob, filename){
@@ -3519,8 +3623,8 @@ async function deleteFilteredRecords(){
   }
 
   const ids = targets.map(s=>s.id);
+  await updateSheetIndex(null, ids);   // 목록 갱신이 성공한 뒤에 기록 삭제 (읽기 실패 시 아무것도 지우지 않음)
   for(const id of ids){ await deleteSheetById(id); }
-  await updateSheetIndex(null, ids);
   if(ids.includes(currentSheetId)){
     await resetActiveSheetView();
   }
@@ -3546,31 +3650,18 @@ document.getElementById('record-filter-delete-btn').addEventListener('click', as
 });
 
 /* ============================================================
-   선택한 월 기록 일괄 저장(내보내기)
-   - 상단 툴바에서 사용자가 고른 "년도/월"에 대해, 정식 7가지 품목의
-     모든 기기를 대상으로 각각 엑셀(.xlsx)로 만들어 사용자가 직접 고른
-     폴더(예: 바탕화면)에 저장한다.
-   - 그 달에 실제로 작성된 기록이 있으면 그 내용 그대로, 아예 기록을
-     작성하지 않은 기기가 있으면(=기기가동 기록 자체를 안 한 경우) 빈
-     양식으로 만들어서 함께 저장한다. → 기록을 안 했다는 이유로 저장이
-     안 되던 문제를 해결.
-   - 저장만 하고, 이 앱의 저장소(불러오기 목록)에 있는 기록은 그대로
-     유지한다(삭제하지 않음).
-   - 저장할 때 품목코드(G0720, O0830 등)별로 하위 폴더를 만들어 그 안에
-     같은 품목 파일들을 모아서 저장한다. (폴더 선택을 지원하지 않는
-     브라우저는 폴더 생성이 안 되므로 다운로드 폴더에 그대로 받는다.)
-     파일명은 "기기가동기록서_기기번호_연월"(예: 기기가동기록서_VD-101_202607.xlsx) 형식.
-   - 폴더 선택 창은 File System Access API(showDirectoryPicker)를 지원하는
-     브라우저(Chrome/Edge, https 또는 localhost)에서만 뜬다. 지원하지 않으면
-     각 파일을 브라우저 기본 다운로드 폴더로 순차 다운로드하는 방식으로 대체한다.
+   선택한 월 기록 일괄 내보내기 (PDF 한 파일 / 엑셀 한 파일)
+   - 상단 툴바에서 사용자가 고른 "년도/월"에 대해, 정식 7가지 품목의 모든 기기를
+     품목 순서 → 기기 순서(BASE_TO_DEVICES 순서)대로 이어 붙여 파일 1개로 만든다.
+   - 그 달에 실제로 작성된 기록은 그 내용 그대로, 기록을 작성하지 않은 기기는 빈 양식으로 함께 넣는다.
+   - 내보내기만 하며, 이 앱의 저장소에 있는 기록은 그대로 유지한다.
+   - 파일명: 기기가동기록서_연월.pdf / 기기가동기록서_연월.xlsx
+   - 저장 위치 선택 창(showSaveFilePicker)을 지원하면 그걸 쓰고, 지원하지 않거나 막히면
+     브라우저 기본 다운로드 폴더로 받는다.
 ============================================================ */
-async function saveAndArchiveSheetsForMonth(targetYear, targetMonth){
-  // 정식 7가지 품목(BASE_PRODUCTS) 중, 기기가 실제로 매핑되어 있는 품목만 대상으로 함
-  // 품목 하나당 파일 1개를 만들고, 그 안에 기기별로 시트(탭)를 나눈다.
-  // 탭 순서는 BASE_TO_DEVICES[product]에 정의된 순서를 그대로 따른다.
-  // (예: O0330 → RS-302, RG-203, NF-104(여과기), VD-102(건조기) 순)
+async function exportMonthFile(targetYear, targetMonth, format){
+  format = format || 'pdf';   // 'pdf' | 'xlsx'
   const productList = BASE_PRODUCTS.filter(p => (BASE_TO_DEVICES[p] || []).length > 0);
-
   if(productList.length === 0){
     toast('저장할 품목 목록이 없습니다.', true);
     return;
@@ -3585,97 +3676,99 @@ async function saveAndArchiveSheetsForMonth(targetYear, targetMonth){
   const writtenCount = productList.reduce((sum, p)=>
     sum + BASE_TO_DEVICES[p].filter(d => existingByDevice.has(d)).length, 0);
   const blankCount = totalDeviceCount - writtenCount;
+  const label = format === 'xlsx' ? '엑셀(.xlsx) 한 파일(기기별 시트)' : 'PDF 한 파일(기기별 쪽)';
 
-  let confirmMsg = `${targetYear}년 ${targetMonth}월 기록을 품목별 엑셀 파일(품목 1개당 파일 1개, 기기별로 시트를 나눠서 저장)로 저장합니다. `
+  let confirmMsg = `${targetYear}년 ${targetMonth}월 기록을 ${label}로 저장합니다. `
     + `(품목 ${productList.length}건 / 기기 ${totalDeviceCount}건, 작성된 기록 ${writtenCount}건`;
-  confirmMsg += blankCount > 0 ? `, 기록을 작성하지 않은 기기 ${blankCount}건은 빈 시트로 저장) ` : `) `;
+  confirmMsg += blankCount > 0 ? `, 기록을 작성하지 않은 기기 ${blankCount}건은 빈 양식으로 저장) ` : `) `;
   confirmMsg += '계속할까요?';
   if(!confirm(confirmMsg)) return;
 
-  const supportsDirPicker = typeof window.showDirectoryPicker === 'function';
-  let dirHandle = null;
-  if(supportsDirPicker){
+  const ym = `${targetYear}${String(targetMonth).padStart(2,'0')}`;
+  const ext = format === 'xlsx' ? 'xlsx' : 'pdf';
+  const fname = `기기가동기록서_${ym}.${ext}`;
+  const mime = format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf';
+
+  // 저장 위치 선택 창은 클릭 직후에만 열 수 있으므로 파일을 만들기 전에 먼저 받아둔다
+  let fileHandle = null;
+  if(typeof window.showSaveFilePicker === 'function'){
     try{
-      dirHandle = await window.showDirectoryPicker();
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: format === 'xlsx' ? 'Excel 통합 문서' : 'PDF 문서', accept: { [mime]: ['.' + ext] } }]
+      });
     }catch(e){
-      if(e && e.name === 'AbortError') return; // 사용자가 폴더 선택을 취소함
-      console.error(e);
-      toast('저장 폴더를 여는 중 오류가 발생했습니다.', true);
-      return;
+      if(e && e.name === 'AbortError') return;   // 사용자가 저장 창을 취소함
+      console.error(e);                          // 막힌 경우: 일반 다운로드로 진행
+      fileHandle = null;
     }
   }
 
+  const entries = [];
   let savedDeviceCount = 0;
-  let savedFileCount = 0;
-  const failedProducts = [];
-
   for(const product of productList){
-    const devices = BASE_TO_DEVICES[product];
-    try{
-      const sheetList = [];
-      for(const device of devices){
-        const location = locationForDevice(device) || '';
-        const existing = existingByDevice.get(device);
-        let data = existing ? await loadSheetById(existing.id) : null;
-        if(!data){
-          data = {
-            year: targetYear, month: targetMonth,
-            product, device, location,
-            rows: Array.from({length: DAYS_MIN_ROWS}, blankRow),
-            footerNote:'', manager:'', approver:'', managerDate:'', approverDate:'',
-            updatedAt: new Date().toISOString()
-          };
-        } else {
-          savedDeviceCount++;
-        }
-        sheetList.push({ device, sheet: data });
-      }
-
-      const blob = await buildMultiSheetWorkbookBlob(sheetList);
-      const fname = `기기가동기록서_${sanitize(product)||'품목'}_${targetYear}${String(targetMonth).padStart(2,'0')}.xlsx`;
-      if(dirHandle){
-        const fileHandle = await dirHandle.getFileHandle(fname, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
+    for(const device of BASE_TO_DEVICES[product]){
+      const location = locationForDevice(device) || '';
+      const existing = existingByDevice.get(device);
+      let data = existing ? await loadSheetById(existing.id) : null;
+      if(!data){
+        data = {
+          year: targetYear, month: targetMonth,
+          product, device, location,
+          rows: Array.from({length: DAYS_MIN_ROWS}, blankRow),
+          footerNote:'', manager:'', approver:'', managerDate:'', approverDate:'',
+          updatedAt: new Date().toISOString()
+        };
       } else {
-        // 폴더 선택을 지원하지 않는 브라우저는 다운로드 폴더에 그대로 받는다
-        downloadBlob(blob, fname);
+        savedDeviceCount++;
       }
-      savedFileCount++;
-    }catch(e){
-      console.error(e);
-      failedProducts.push(product);
+      entries.push({ product, device, sheet: data });
     }
   }
 
-  const locNote = dirHandle ? '선택한 폴더에' : '브라우저 기본 다운로드 폴더에';
-  let msg = `${targetYear}년 ${targetMonth}월 기록을 품목별 파일 ${savedFileCount}건(기기 총 ${totalDeviceCount}건 · 시트로 구성, 작성된 기록 ${savedDeviceCount}건 + 빈 시트 ${totalDeviceCount - savedDeviceCount}건)으로 ${locNote} 저장했습니다.`;
-  if(failedProducts.length) msg += ` (실패한 품목: ${failedProducts.join(', ')})`;
-  toast(msg, failedProducts.length > 0);
+  const blob = format === 'xlsx' ? await buildXlsxBlob(entries) : await buildProductPdfBlob(entries);
+
+  let viaPicker = false;
+  if(fileHandle){
+    try{
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      viaPicker = true;
+    }catch(writeErr){
+      console.error(writeErr);                   // 쓰기가 막히면 일반 다운로드로 대신 받는다
+    }
+  }
+  if(!viaPicker) downloadBlob(blob, fname);
+
+  toast(`${targetYear}년 ${targetMonth}월 기록을 ${ext.toUpperCase()} 한 파일(기기 총 ${totalDeviceCount}건, 작성된 기록 ${savedDeviceCount}건 + 빈 양식 ${totalDeviceCount - savedDeviceCount}건)로 ${viaPicker ? '선택한 위치에' : '브라우저 기본 다운로드 폴더에'} 저장했습니다.`);
 }
 
-document.getElementById('prev-month-save-btn').addEventListener('click', async ()=>{
-  if(isReadOnly){ toast('보기 전용 모드에서는 저장할 수 없습니다.', true); return; }
-  const targetYear = parseInt(document.getElementById('xls-year').value, 10);
-  const targetMonth = parseInt(document.getElementById('xls-month').value, 10);
-  if(!targetYear || !targetMonth){
-    toast('상단에서 저장할 년도와 월을 먼저 선택하세요.', true);
-    return;
-  }
-  const btn = document.getElementById('prev-month-save-btn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '저장 중...';
-  try{
-    await saveAndArchiveSheetsForMonth(targetYear, targetMonth);
-  }catch(e){
-    console.error(e);
-    toast('선택한 월 기록 저장 중 오류가 발생했습니다. 다시 시도해주세요.', true);
-  }finally{
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
+[['prev-month-save-btn','pdf'],['export-xlsx-btn','xlsx']].forEach(([btnId, exportFormat])=>{
+  document.getElementById(btnId).addEventListener('click', async ()=>{
+    if(isReadOnly){ toast('보기 전용 모드에서는 저장할 수 없습니다.', true); return; }
+    const targetYear = parseInt(document.getElementById('xls-year').value, 10);
+    const targetMonth = parseInt(document.getElementById('xls-month').value, 10);
+    if(!targetYear || !targetMonth){
+      toast('상단에서 저장할 년도와 월을 먼저 선택하세요.', true);
+      return;
+    }
+    const btn = document.getElementById(btnId);
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+    try{
+      await exportMonthFile(targetYear, targetMonth, exportFormat);
+    }catch(e){
+      console.error(e);
+      toast(exportFormat === 'xlsx'
+        ? '엑셀 파일을 만들지 못했습니다. (보안 프로그램 등으로 막힌 PC에서는 PDF로 내보내세요)'
+        : '선택한 월 기록 저장 중 오류가 발생했습니다. 다시 시도해주세요.', true);
+    }finally{
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
 });
 
 
