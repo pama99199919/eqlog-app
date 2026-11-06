@@ -762,7 +762,7 @@
             <div class="tb-field"><label>API 키</label><input type="text" id="pc-api-key" placeholder="Google Cloud에서 발급받은 API 키"></div>
           </div>
           <button type="button" class="btn btn-primary" id="pc-save-config-btn">설정 저장</button>
-          <div class="pc-help">※ 톤백 관리대장에서 쓰는 것과 같은 캘린더 ID / API 키를 입력하세요(캘린더는 "공개"로 설정). 저장하면 모든 사용자에게 공유됩니다. 일정 제목에 품목 코드와 정제/여과/건조가 들어간 일정만 반영합니다.</div>
+          <div class="pc-help">※ 구글 캘린더 ID와 API 키를 입력하세요(캘린더는 "공개"로 설정). 저장하면 모든 사용자에게 공유됩니다. 일정 제목에 품목 코드와 정제/여과/건조가 들어간 일정만 반영합니다.</div>
         </div>
         <div id="record-week-note"></div>
         <div class="list-count">저장된 기록 <span id="record-total-count"></span></div>
@@ -1954,17 +1954,18 @@ function populateYearMonth(){
   });
 
   // "저장된 기록" 탭의 목록을 연도/월/품목별로 필터링하기 위한 셀렉트
-  // (기본값은 "전체" — 모든 연월/품목의 기록을 함께 보여줌)
+  // (기본값은 접속한 날 기준 "이번 연도 / 이번 달" — 로그인할 때마다 그 달 기록만 먼저 보여줌.
+  //  다른 달이나 전체를 보려면 드롭다운에서 "전체" 또는 원하는 연/월을 고르면 된다)
   const fySel = document.getElementById('record-filter-year');
   const fmSel = document.getElementById('record-filter-month');
   const fpSel = document.getElementById('record-filter-product');
   if(fySel){
     fySel.innerHTML = '<option value="">연도: 전체</option>' +
-      Array.from({length:13}, (_,i)=>thisYear-2+i).map(y=>`<option value="${y}">${y}년</option>`).join('');
+      Array.from({length:13}, (_,i)=>thisYear-2+i).map(y=>`<option value="${y}"${y===thisYear?' selected':''}>${y}년</option>`).join('');
   }
   if(fmSel){
     fmSel.innerHTML = '<option value="">월: 전체</option>' +
-      Array.from({length:12}, (_,i)=>i+1).map(m=>`<option value="${m}">${m}월</option>`).join('');
+      Array.from({length:12}, (_,i)=>i+1).map(m=>`<option value="${m}"${m===now.getMonth()+1?' selected':''}>${m}월</option>`).join('');
   }
   if(fpSel){
     fpSel.innerHTML = '<option value="">전체 품목</option>' +
@@ -3579,9 +3580,10 @@ document.getElementById('gen-selected-month-btn').addEventListener('click', asyn
      드롭다운에서 선택된 값을 그대로 조건으로 사용해서, 조건에 맞는
      기록을 한 번에 삭제한다(검색어(record-search-input)는 조건에
      포함하지 않음 — 필터 3개만 기준으로 삼는다).
-   - 셋 다 "전체"(빈 값)면 실수로 전체 데이터가 삭제되는 사고를 막기
-     위해 아무것도 지우지 않고 안내만 한다. 하나 이상만 선택해도 됨
-     (예: 년도만 선택 → 그 해 전체, 년도+월만 선택 → 그 달 전체).
+   - 년도와 월은 반드시 둘 다 선택해야 한다. 하나라도 "전체"(빈 값)면
+     여러 해/여러 달이 한꺼번에 지워지는 사고를 막기 위해 아무것도
+     지우지 않고 안내만 한다. 품목은 선택 사항
+     (예: 년도+월 → 그 달 전체 품목, 년도+월+품목 → 그 달 해당 품목만).
    - 개별 삭제(data-del)와 동일하게, 실수 방지를 위해 "삭제"라는
      글자를 정확히 입력해야만 실제로 지워지도록 한다.
 ============================================================ */
@@ -3593,8 +3595,10 @@ async function deleteFilteredRecords(){
   const fMonth = fmRaw ? parseInt(fmRaw, 10) : null;
   const fProduct = fpRaw || null;
 
-  if(!fYear && !fMonth && !fProduct){
-    toast('삭제할 범위를 정하려면 년도·월·품목 중 하나 이상을 먼저 선택해주세요.', true);
+  // 실수로 넓은 범위(여러 해/여러 달)가 한꺼번에 지워지지 않도록, 년도와 월은
+  // 반드시 둘 다 지정해야 삭제할 수 있다. 품목은 선택 사항(전체면 그 달 모든 품목).
+  if(!fYear || !fMonth){
+    toast('삭제하려면 년도와 월을 모두 선택해주세요. (품목은 선택하지 않아도 됩니다)', true);
     return;
   }
 
@@ -3774,7 +3778,7 @@ async function exportMonthFile(targetYear, targetMonth, format){
 
 /* ============================================================
    구글 캘린더 연동 공통 로직 ("저장된 기록" 탭의 이번 주 작업 표시에 사용)
-   - 톤백 관리대장과 같은 방식: 공개 캘린더를 API 키로 읽는다(OAuth 불필요).
+   - 공개 캘린더를 API 키로 읽는다(OAuth 불필요).
    - 일정 제목에 품목 코드와 정제/여과/건조가 들어 있으면 그 품목의 작업으로 본다.
    - 작성 판단: 해당 기기의 기록서에서 그 주(일~토) 날짜와 겹치는 날짜 행이 있으면 "작성".
 ============================================================ */
