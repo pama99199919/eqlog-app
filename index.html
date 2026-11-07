@@ -864,7 +864,7 @@
 ============================================================ */
 let currentUser = null;
 let signupMode = false;
-const CURRENT_USER_LS_KEY = 'eqlog__current_user'; // 새로고침해도 로그인 유지
+const CURRENT_USER_LS_KEY = 'eqlog__current_user'; // 새로고침해도 로그인 유지 (sessionStorage: 탭/브라우저를 닫으면 로그아웃)
 let sheetIndex = [];      // shared list of saved sheet metadata
 let currentSheet = null;  // currently loaded/editing sheet object
 let currentSheetId = null;
@@ -1755,7 +1755,7 @@ document.getElementById('login-form').addEventListener('submit', async (e)=>{
     users.push({ username, password, role: 'viewer' });
     await saveUsers(users);
     currentUser = username;
-    try{ localStorage.setItem(CURRENT_USER_LS_KEY, username); }catch(e){}
+    try{ sessionStorage.setItem(CURRENT_USER_LS_KEY, username); }catch(e){}
     setLoggingIn(true);
     await establishSession();
     setLoggingIn(false);
@@ -1775,7 +1775,7 @@ document.getElementById('login-form').addEventListener('submit', async (e)=>{
     return;
   }
   currentUser = username;
-  try{ localStorage.setItem(CURRENT_USER_LS_KEY, username); }catch(e){}
+  try{ sessionStorage.setItem(CURRENT_USER_LS_KEY, username); }catch(e){}
   setLoggingIn(true);
   await establishSession();
   setLoggingIn(false);
@@ -1800,9 +1800,11 @@ async function initLoginScreen(){
     await saveUsers(users);
   }
 
-  // 새로고침해도 로그인 유지: 저장된 세션이 있고 해당 계정이 아직 존재하면 자동 로그인
+  // 예전 버전이 localStorage에 남겨둔 로그인 정보는 지운다 (창을 닫아도 로그인이 유지되던 원인)
+  try{ localStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
+  // 새로고침해도 로그인 유지(같은 탭 안에서만): 저장된 세션이 있고 해당 계정이 아직 존재하면 자동 로그인
   let savedUser = null;
-  try{ savedUser = localStorage.getItem(CURRENT_USER_LS_KEY); }catch(e){}
+  try{ savedUser = sessionStorage.getItem(CURRENT_USER_LS_KEY); }catch(e){}
   if(savedUser && users.some(u=>u.username===savedUser)){
     currentUser = savedUser;
     await establishSession();
@@ -1811,7 +1813,7 @@ async function initLoginScreen(){
   }
   if(savedUser){
     // 저장된 계정이 삭제된 경우 등 -> 세션 정보 정리
-    try{ localStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
+    try{ sessionStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
   }
 
   signupMode = false;
@@ -1823,7 +1825,7 @@ document.getElementById('reconnect-btn').addEventListener('click', retryFirebase
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
   if(isDirty && !confirm('저장하지 않은 변경사항이 있습니다. 로그아웃하시겠습니까?')) return;
   currentUser = null;
-  try{ localStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
+  try{ sessionStorage.removeItem(CURRENT_USER_LS_KEY); }catch(e){}
   currentSheet = null;
   currentSheetId = null;
   isEditingExisting = false;
