@@ -608,6 +608,9 @@
   /* 저장된 기록 - 이번 주 작업 품목 강조 */
   tr.wk-row td{background:#f1f6ff;}
   .wk-tag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;background:var(--accent-1);color:#fff;vertical-align:middle;}
+  .wk-done{display:inline-flex;align-items:center;gap:3px;margin:0 2px 0 6px;font-size:11.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;vertical-align:middle;}
+  .wk-done input{margin:0;cursor:pointer;}
+  #record-week-note a[data-wkundo]{margin-left:3px;font-size:12px;}
   #record-week-note{display:none;margin:0 0 10px;padding:9px 12px;border:1px solid #cfe0ff;background:#f1f6ff;border-radius:6px;font-size:12.5px;color:var(--ink);line-height:1.6;}
 
   @media (max-width:880px){
@@ -3968,31 +3971,91 @@ let pcWeekInfo = null;   // { weeks:[{start,end,products,months}], loadedAt }
 let pcActiveMap = new Map(); // sheetId -> { tag:'이번 주', ws, we }
 let pcWeekBusy = false;
 
+/* ===== 수동 작성완료 (기록서에는 적지 않는 추가 정제/건조 등) =====
+   "작성할 기록" 안내줄의 각 항목 옆 체크박스로 작성완료 처리한다.
+   체크한 작업은 기록서 내용과 상관없이 완료로 보고 이번 주 표시에서 빠지며,
+   되돌리기는 master 계정에게만 보인다. (모든 사용자에게 공유 저장)
+   저장 형태: { "기록서ID#작업키": { label, ws(그 주 시작일), at, by } } */
+const PC_MANUAL_KEY = 'prod-calendar-manual-done';
+let pcManualDone = {};
+function pcYmd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function pcEvKey(e){ return `s|${e.stage||0}|${e.process||''}|${pcYmd(e.start)}|${pcYmd(e.end)}`; }   // 차수 품목 일정
+function pcLotKey(e){ return `l|${e.lot}|${e.process||''}`; }                                      // 로트번호 일정
+function pcManualHas(sheetId, key){ return !!pcManualDone[sheetId+'#'+key]; }
+async function pcLoadManualDone(){
+  try{
+    const r = await stGet(PC_MANUAL_KEY, true);
+    const o = r ? JSON.parse(r.value) : null;
+    pcManualDone = (o && typeof o === 'object') ? o : {};
+  }catch(e){ pcManualDone = {}; }
+}
+async function pcSaveManualDone(){
+  // 작업 주가 40일 넘게 지난 항목은 정리한다
+  const lim = new Date(); lim.setDate(lim.getDate()-40);
+  const limS = pcYmd(lim);
+  Object.keys(pcManualDone).forEach(k=>{ const v = pcManualDone[k]; if(v && v.ws && v.ws < limS) delete pcManualDone[k]; });
+  const r = await stSet(PC_MANUAL_KEY, JSON.stringify(pcManualDone), true);
+  return !!r;
+}
+async function pcMarkManualMany(ids){
+  await pcLoadManualDone();   // 다른 사용자가 먼저 저장한 내용과 합치기 위해 최신본을 다시 읽는다
+  const added = [];
+  ids.forEach(id=>{
+    const a = pcActiveMap.get(id), m = sheetIndex.find(x=>x.id===id);
+    if(!a || !a.key || !m) return;
+    const k = id+'#'+a.key;
+    pcManualDone[k] = { label: `${m.product} ${m.device}${a.stage ? ' ' + a.stage : ''}`, ws: pcYmd(a.ws), at: Date.now(), by: currentUser || '' };
+    added.push(k);
+  });
+  if(!added.length) return false;
+  const ok = await pcSaveManualDone();
+  if(!ok) added.forEach(k=>{ delete pcManualDone[k]; });
+  return ok;
+}
+
 function pcWeekTag(s){ const a = pcActiveMap.get(s.id); return a ? a.tag : ''; }
 function pcWeekStage(s){ const a = pcActiveMap.get(s.id); return a && a.stage ? a.stage : ''; }
 
+// 작성완료 되돌리기는 master 계정에게만 보인다 (감사 때 일반 화면에는 노출하지 않기 위함)
+function pcCanUndoManual(){ return currentUser === 'master'; }
+
 function pcUpdateWeekNote(){
   const el = document.getElementById('record-week-note'); if(!el) return;
-  if(pcActiveMap.size===0){ el.style.display='none'; return; }
-  const parts = [];
-  ['이번 주'].forEach(tag=>{
-    const prods = new Set();
-    const stageBy = new Map();
-    let range = null;
-    pcActiveMap.forEach((a, id)=>{
-      if(a.tag!==tag) return;
-      const m = sheetIndex.find(x=>x.id===id); if(m) prods.add(m.product);
-      if(m && a.stage){ const st = stageBy.get(m.product) || new Set(); st.add(a.stage); stageBy.set(m.product, st); }
-      range = a;
-    });
-    if(prods.size){
-      const list = BASE_PRODUCTS.filter(b=>prods.has(b));
-      const label = b => escapeHtml(b) + (stageBy.has(b) ? ` <span style=\"font-weight:500\">(${[...stageBy.get(b)].map(escapeHtml).join(' / ')})</span>` : '');
-      parts.push(`${tag}(${pcLabel(range.ws)}~${pcLabel(range.we)}) <b>${list.map(label).join(', ')}</b>`);
-    }
+  const wsStr = (pcWeekInfo && pcWeekInfo.weeks[0]) ? pcYmd(pcWeekInfo.weeks[0].start) : '';
+  const mans = pcCanUndoManual()
+    ? Object.keys(pcManualDone).filter(k => pcManualDone[k] && pcManualDone[k].ws === wsStr)
+    : [];
+  if(pcActiveMap.size===0 && !mans.length){ el.style.display='none'; return; }
+
+  // 품목 → (일정 문구 → 해당 기록서 id 목록). 같은 품목·같은 일정은 한 항목으로 묶어 체크박스 하나로 처리한다.
+  const byProd = new Map();
+  let range = null;
+  pcActiveMap.forEach((a, id)=>{
+    const m = sheetIndex.find(x=>x.id===id); if(!m) return;
+    const g = byProd.get(m.product) || new Map();
+    const sk = a.stage || '';
+    const ids = g.get(sk) || [];
+    ids.push(id); g.set(sk, ids); byProd.set(m.product, g);
+    range = a;
   });
+  const box = ids => `<label class="wk-done" title="기록서에 적지 않는 작업(추가 정제/건조 등)이면 체크하세요. 작성완료로 처리되어 목록에서 빠집니다."><input type="checkbox" data-wkdone="${escapeHtml(ids.join(','))}"${isReadOnly ? ' disabled' : ''}> 작성완료</label>`;
+  const items = BASE_PRODUCTS.filter(b => byProd.has(b)).map(b=>{
+    const g = byProd.get(b);
+    const parts = [...g.keys()].map(st => st
+      ? `<span style="font-weight:500">(${escapeHtml(st)})</span>${box(g.get(st))}`
+      : box(g.get(st)));
+    return `<b>${escapeHtml(b)}</b> ${parts.join(' ')}`;
+  });
+
+  let html = items.length
+    ? `📅 작성할 기록 — 이번 주(${pcLabel(range.ws)}~${pcLabel(range.we)}) ${items.join(' · ')}. 작성하면 이 목록에서 빠집니다.`
+    : '📅 이번 주 작성할 기록이 없습니다.';
+  if(mans.length){
+    html += `<div style="margin-top:4px;">✔ 체크로 작성완료 처리: ${mans.map(k =>
+      `${escapeHtml(pcManualDone[k].label || '')} <a href="#" data-wkundo="${escapeHtml(k)}">되돌리기</a>`).join(' · ')}</div>`;
+  }
   el.style.display='block';
-  el.innerHTML = `📅 작성할 기록 — ${parts.join(' · ')}. 작성하면 이 목록에서 빠집니다.`;
+  el.innerHTML = html;
 }
 
 /* ===== 이번 주 작업 표시: 로트번호 + 차수/기기별 완료 규칙 ===== */
@@ -4011,7 +4074,10 @@ function pcRowFull(r){
 // 기기 종류/차수별 완료 패턴 (규칙이 바뀌면 이 함수만 고치면 됨)
 //  반응기: 1차 '정제' / 2차 '정제,CS' (GP-A079는 1차도 '정제,CS')
 //  여과기: 1차 '여과,CS' / 2차(및 차수 없는 품목) '여과,여과,CS'
+//         (단, PC_FILTER_SHORT_PRODUCTS 품목은 차수와 관계없이 '여과,CS')
 //  건조기: '건조,CS'
+// 여과기 완료 기준이 '여과,CS' 두 줄인 품목 (그 외 품목은 차수에 따라 위 규칙을 따름)
+const PC_FILTER_SHORT_PRODUCTS = ['LX0556','O0830'];
 function pcStagePattern(product, device, ev){
   const t = deviceTypeRank(device);            // 0=반응기, 1=여과기, 2=건조기
   if(t === 0){
@@ -4019,6 +4085,7 @@ function pcStagePattern(product, device, ev){
     return ev.stage === 1 ? ['정제'] : ['정제','CS'];
   }
   if(t === 1){
+    if(PC_FILTER_SHORT_PRODUCTS.indexOf(product) !== -1) return ['여과','CS'];
     return ev.stage === 1 ? ['여과','CS'] : ['여과','여과','CS'];
   }
   return ['건조','CS'];
@@ -4120,6 +4187,7 @@ async function pcEnsureThisWeek(){
     }
 
     pcSheetCache = new Map(); // 작성 여부는 매번 최신 기록서로 다시 확인
+    await pcLoadManualDone(); // 체크박스로 작성완료 처리한 작업 목록
     const next = new Map();
     for(const sh of sheetIndex){
       for(let k=0;k<pcWeekInfo.weeks.length;k++){
@@ -4129,6 +4197,7 @@ async function pcEnsureThisWeek(){
         if(PC_STAGED_PRODUCTS.indexOf(sh.product) !== -1){
           const mine = w.stageEvents
             .filter(e => e.base===sh.product && pcEventTouchesMonth(e, sh.year, sh.month) && pcStageUsesDevice(e, sh.device))
+            .filter(e => !pcManualHas(sh.id, pcEvKey(e)))   // 체크로 작성완료 처리한 일정은 기록서 비교에서 제외
             .sort((a,b)=> (a.start - b.start) || ((a.stage||0) - (b.stage||0)));
           if(mine.length){
             const patterns = mine.map(e => pcStagePattern(sh.product, sh.device, e));
@@ -4136,14 +4205,15 @@ async function pcEnsureThisWeek(){
             mine.forEach(e=>{ const l = pcLastDay(e); if(l > spanEnd) spanEnd = l; });
             const done = await pcCountStagesDone(sh.device, mine[0].start, spanEnd, patterns);
             const pend = mine[done];
-            if(pend) next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end, stage: pcStageText(pend) });
+            if(pend) next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end, stage: pcStageText(pend), key: pcEvKey(pend) });
           }
           continue;
         }
 
         // (2) 로트번호가 있는 일정(O0330/C383, O0731/LHT 등): 로트 첫 줄부터 패턴이 완성돼야 완료
         const lotEvs = w.lotEvents.filter(e =>
-          e.base===sh.product && pcEventTouchesMonth(e, sh.year, sh.month) && pcStageUsesDevice(e, sh.device));
+          e.base===sh.product && pcEventTouchesMonth(e, sh.year, sh.month) && pcStageUsesDevice(e, sh.device)
+          && !pcManualHas(sh.id, pcLotKey(e)));   // 체크로 작성완료 처리한 로트는 제외
         if(lotEvs.length){
           const data = await pcLoadSheet(sh.id);
           const rows = data && Array.isArray(data.rows) ? data.rows : [];
@@ -4151,16 +4221,18 @@ async function pcEnsureThisWeek(){
             .sort((a,b)=> a.start - b.start)
             .find(e => !pcLotDone(rows, e.lot, pcStagePattern(sh.product, sh.device, e)));
           if(pend){
-            next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end, stage: `${pend.lot} ${pend.process || ''}`.trim() });
+            next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end, stage: `${pend.lot} ${pend.process || ''}`.trim(), key: pcLotKey(pend) });
           }
           continue;
         }
 
         // (3) 로트번호도 차수도 없는 일정: 기존 방식(그 주에 날짜 행이 있으면 작성됨)
         if(!w.products.has(sh.product) || !w.months.has(`${sh.year}-${sh.month}`)) continue;
+        const wkKey = 'w|' + pcYmd(w.start);
+        if(pcManualHas(sh.id, wkKey)) continue;   // 체크로 작성완료 처리됨
         const st = await pcDeviceStatus(sh.device, w.start, w.end);
         if(st === 'ok') continue;
-        next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end });
+        next.set(sh.id, { tag: '이번 주', ws: w.start, we: w.end, key: wkKey });
         break;
       }
     }
@@ -4184,6 +4256,33 @@ document.getElementById('pc-refresh-btn').addEventListener('click', ()=>{
   pcEnsureThisWeek();
 });
 document.getElementById('pc-only-week').addEventListener('change', ()=> refreshRecordList());
+document.getElementById('record-week-note').addEventListener('click', async (ev)=>{
+  const a = ev.target.closest('[data-wkundo]');
+  if(!a) return;
+  ev.preventDefault();
+  if(!pcCanUndoManual()){ return; }   // master 외 계정은 되돌릴 수 없다
+  await pcLoadManualDone();
+  delete pcManualDone[a.dataset.wkundo];
+  if(!(await pcSaveManualDone())){ toast('저장하지 못했습니다. 다시 시도해주세요.', true); return; }
+  toast('작성완료 처리를 되돌렸습니다.');
+  await pcEnsureThisWeek();
+});
+document.getElementById('record-week-note').addEventListener('change', async (ev)=>{
+  const cb = ev.target.closest('[data-wkdone]');
+  if(!cb || !cb.checked) return;
+  if(isReadOnly){ cb.checked = false; toast('보기 전용 모드에서는 처리할 수 없습니다.', true); return; }
+  const ids = cb.dataset.wkdone.split(',').filter(Boolean);
+  const names = ids.map(id=>{
+    const m = sheetIndex.find(x=>x.id===id), a = pcActiveMap.get(id);
+    return m ? `${m.product} ${m.device}${a && a.stage ? ' · ' + a.stage : ''}` : '';
+  }).filter(Boolean);
+  if(!confirm(`다음 작업을 작성완료로 처리할까요?\n\n${names.join('\n')}\n\n기록서에는 적지 않고 이번 주 목록에서만 빠집니다.`)){ cb.checked = false; return; }
+  cb.disabled = true;
+  const ok = await pcMarkManualMany(ids);
+  if(!ok){ cb.checked = false; cb.disabled = false; toast('저장하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.', true); return; }
+  toast('작성완료로 처리했습니다.');
+  await pcEnsureThisWeek();
+});
 document.getElementById('pc-save-config-btn').addEventListener('click', async ()=>{
   if(isReadOnly){ toast('보기 전용 모드에서는 설정을 저장할 수 없습니다.', true); return; }
   const cfg = {
